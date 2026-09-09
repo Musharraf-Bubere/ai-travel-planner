@@ -1,154 +1,199 @@
-# AI Travel Planner — Multi-Agent Travel Planning System
+# ✈️ AI Travel Planner — Multi-Agent Travel Planning System
 
-AI Travel Planner is an Agentic AI application that uses a coordinated multi-agent architecture to research, analyze, and generate personalized travel plans.
+<p align="center">
 
-The system accepts a user's destination, travel dates, budget, number of travelers, and preferences, then coordinates specialized AI agents to gather relevant travel information and produce a structured day-by-day itinerary.
+  <img src="https://img.shields.io/badge/Python-3.x-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
 
-Built with Python, LangChain, LangGraph, Google Gemini, FastAPI, Streamlit, external travel APIs, and MCP, the project demonstrates how Agentic AI can be applied to a practical real-world planning problem.
+  <img src="https://img.shields.io/badge/LangChain-Framework-1C3C3C?style=for-the-badge" alt="LangChain">
 
----
+  <img src="https://img.shields.io/badge/LangGraph-Agent%20Orchestration-1C3C3C?style=for-the-badge" alt="LangGraph">
 
-## Features
+  <img src="https://img.shields.io/badge/Google%20Gemini-LLM-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google Gemini">
 
-- Multi-Agent AI travel planning
-- Google Gemini-powered reasoning and generation
-- LangGraph-based agent orchestration
-- LangChain-based LLM and tool integration
-- Destination research
-- Accommodation recommendations
-- Activities and attractions
-- Restaurant and food recommendations
-- Weather information
-- Location-aware recommendations
-- Budget-aware travel planning
-- Personalized day-by-day itinerary
-- External tool and API integration
-- Model Context Protocol (MCP) integration
-- Structured agent outputs
-- Conditional workflows
-- Parallel workflows
-- Stateful workflow and persistence support
-- FastAPI backend
-- Streamlit frontend
-- Automated testing
-- Docker support
-- GitHub Actions CI/CD
-- Deployment-ready architecture
+  <img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
 
----
+  <img src="https://img.shields.io/badge/Streamlit-Frontend-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit">
 
-## Problem Statement
+</p>
 
-Planning a trip manually requires researching information from multiple sources and combining it into a practical itinerary.
+<p align="center">
 
-A traveler may need to separately research:
+  <img src="https://img.shields.io/badge/MCP-Model%20Context%20Protocol-6B46C1?style=for-the-badge" alt="MCP">
 
-- Destination information
-- Hotels and accommodation
-- Weather
-- Places to visit
-- Activities
-- Restaurants
-- Transportation considerations
-- Budget
-- Daily schedule
+  <img src="https://img.shields.io/badge/PostgreSQL-Database-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
 
-The information is fragmented across different platforms, making the planning process time-consuming.
+  <img src="https://img.shields.io/badge/Pytest-Testing-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest">
 
-AI Travel Planner addresses this problem by using multiple specialized AI agents that collaborate through an orchestrated workflow.
+  <img src="https://img.shields.io/badge/Docker-Containerization-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+
+  <img src="https://img.shields.io/badge/GitHub%20Actions-CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions">
+
+</p>
+
+<p align="center">
+  <b>🤖 Agentic AI • 🔀 Multi-Agent System • 🧠 LangGraph • 🌍 Travel Intelligence</b>
+</p>
 
 ---
 
-## Solution
+## 🌍 Overview
 
-Instead of relying on a single LLM prompt to generate an entire trip, the system divides travel planning into specialized responsibilities.
+**AI Travel Planner** is an Agentic AI application that uses a coordinated **multi-agent architecture** to research, analyze, and generate personalized travel plans.
+
+Instead of relying on a single LLM prompt to generate an entire trip, the system divides travel planning into specialized tasks and assigns those tasks to dedicated AI agents.
+
+The agents are coordinated using **LangGraph**, which manages the workflow, shared state, agent execution, and decision-making.
+
+The system combines:
+
+- 🤖 AI Agents
+- 👥 Multi-Agent Collaboration
+- 🔀 LangGraph Orchestration
+- 🧠 Google Gemini
+- 🔧 Tool Calling
+- 🌐 External APIs
+- 🔌 Model Context Protocol
+- 📊 Structured Outputs
+- ⚡ FastAPI
+- 🖥️ Streamlit
+
+The result is a personalized, structured, and practical **day-by-day travel itinerary**.
+
+---
+
+## 🎯 Problem Statement
+
+Planning a trip manually requires researching information from multiple sources.
+
+A traveler may need to separately find:
+
+- 📍 Destination information
+- 🏨 Accommodation
+- 🌤️ Weather
+- 🎯 Activities
+- 🍴 Restaurants
+- 🗺️ Places and attractions
+- 💰 Budget information
+- 📅 Daily itinerary
+
+The information is fragmented across different websites and applications.
+
+The traveler must then manually compare the information and combine everything into a practical travel plan.
+
+### 💡 Problem
+
+> Travel planning is time-consuming because relevant information is distributed across multiple sources and must be manually researched, evaluated, and organized.
+
+---
+
+## 💡 Solution
+
+AI Travel Planner automates the planning process using specialized AI agents.
+
+Instead of:
 
     User
-      |
-      v
-    Streamlit Frontend
-      |
-      v
-    FastAPI Backend
-      |
-      v
+      ↓
+    Single LLM
+      ↓
+    Generic Travel Answer
+
+the system uses:
+
+    User
+      ↓
     LangGraph Orchestrator
-      |
-      v
+      ↓
+    Multiple Specialized Agents
+      ↓
+    External Tools / APIs
+      ↓
     Shared Travel State
-      |
-      +-------------------+-------------------+
-      |                   |                   |
-      v                   v                   v
-    Destination Agent   Stay Agent      Activity Agent
-      |                   |                   |
-      +-------------------+-------------------+
-                          |
-                          v
-                    Weather Agent
-                          |
-                          v
-                       Food Agent
-                          |
-                          v
-                   Itinerary Agent
-                          |
-                          v
-                  Final Travel Plan
+      ↓
+    Itinerary Agent
+      ↓
+    Personalized Travel Plan
 
-Each agent focuses on a specific task while LangGraph coordinates the overall workflow and shared state.
+This allows different parts of the planning problem to be handled independently and then combined into a final itinerary.
 
 ---
 
-## System Architecture
+# 🏗️ System Architecture
 
-    +---------------------------------------------------+
-    |                   Streamlit UI                    |
-    +-------------------------+-------------------------+
-                              |
-                              v
-    +---------------------------------------------------+
-    |                     FastAPI                       |
-    +-------------------------+-------------------------+
-                              |
-                              v
-    +---------------------------------------------------+
-    |              LangGraph Orchestrator               |
-    +-------------------------+-------------------------+
-                              |
-                              v
-    +---------------------------------------------------+
-    |                 Shared Travel State               |
-    +-------------------------+-------------------------+
-                              |
-              +---------------+---------------+
-              |               |               |
-              v               v               v
-       Destination Agent   Stay Agent    Activity Agent
-              |               |               |
-              +---------------+---------------+
-                              |
-                              v
-                       Weather Agent
-                              |
-                              v
-                          Food Agent
-                              |
-                              v
-                       Itinerary Agent
-                              |
-                              v
-                       Final Response
+    ┌──────────────────────────────────────────┐
+    │                  USER                    │
+    │                                          │
+    │ Destination • Budget • Dates • Preferences│
+    └─────────────────────┬────────────────────┘
+                          │
+                          ▼
+    ┌──────────────────────────────────────────┐
+    │               STREAMLIT                  │
+    │                FRONTEND                  │
+    └─────────────────────┬────────────────────┘
+                          │
+                          ▼
+    ┌──────────────────────────────────────────┐
+    │                 FASTAPI                  │
+    │                 BACKEND                  │
+    └─────────────────────┬────────────────────┘
+                          │
+                          ▼
+    ┌──────────────────────────────────────────┐
+    │             LANGGRAPH                    │
+    │           ORCHESTRATOR                   │
+    └─────────────────────┬────────────────────┘
+                          │
+                          ▼
+    ┌──────────────────────────────────────────┐
+    │            SHARED TRAVEL STATE            │
+    └─────────────────────┬────────────────────┘
+                          │
+             ┌────────────┼────────────┐
+             │            │            │
+             ▼            ▼            ▼
+       ┌──────────┐ ┌──────────┐ ┌──────────┐
+       │Destination│ │   Stay   │ │ Activity │
+       │   Agent  │ │   Agent  │ │   Agent  │
+       └────┬─────┘ └────┬─────┘ └────┬─────┘
+            │             │             │
+            └─────────────┼─────────────┘
+                          │
+                          ▼
+                    ┌──────────┐
+                    │ Weather  │
+                    │  Agent   │
+                    └────┬─────┘
+                         │
+                         ▼
+                    ┌──────────┐
+                    │   Food   │
+                    │  Agent   │
+                    └────┬─────┘
+                         │
+                         ▼
+                  ┌──────────────┐
+                  │  Itinerary   │
+                  │    Agent     │
+                  └──────┬───────┘
+                         │
+                         ▼
+                  ┌──────────────┐
+                  │Final Travel  │
+                  │    Plan      │
+                  └──────────────┘
 
 ---
 
-## Agent Responsibilities
+# 🤖 Multi-Agent Architecture
 
-### Destination Agent
+The system divides travel planning into specialized agents.
 
-Researches the selected destination and provides relevant travel information.
+## 📍 Destination Agent
 
-Responsibilities include:
+Responsible for destination-level research.
+
+### Responsibilities
 
 - Destination overview
 - Popular areas
@@ -156,46 +201,55 @@ Responsibilities include:
 - Travel considerations
 - Location context
 
-### Stay Agent
+---
 
-Handles accommodation recommendations.
+## 🏨 Stay Agent
 
-Responsibilities include:
+Responsible for accommodation recommendations.
 
-- Hotel and stay recommendations
-- Approximate accommodation costs
+### Responsibilities
+
+- Hotel recommendations
+- Accommodation options
+- Approximate pricing
 - Location suitability
 - Budget considerations
 
-### Activity Agent
+---
 
-Researches activities and attractions.
+## 🎯 Activity Agent
 
-Responsibilities include:
+Responsible for finding activities and attractions.
+
+### Responsibilities
 
 - Tourist attractions
 - Activities
 - Experiences
-- Sightseeing options
+- Sightseeing
 - Preference-based recommendations
 
-### Weather Agent
+---
 
-Provides weather-related information for the travel period.
+## 🌤️ Weather Agent
 
-Responsibilities include:
+Responsible for weather information.
+
+### Responsibilities
 
 - Weather conditions
 - Temperature
 - Rain probability
-- Weather considerations
+- Forecast information
 - Activity suitability
 
-### Food Agent
+---
 
-Handles restaurant and food recommendations.
+## 🍴 Food Agent
 
-Responsibilities include:
+Responsible for food and restaurant recommendations.
+
+### Responsibilities
 
 - Local cuisine
 - Restaurants
@@ -203,11 +257,13 @@ Responsibilities include:
 - Budget-friendly options
 - Preference-based recommendations
 
-### Itinerary Agent
+---
 
-Combines the information collected by the other agents and generates the final travel plan.
+## 📅 Itinerary Agent
 
-Responsibilities include:
+Responsible for combining information from the other agents.
+
+### Responsibilities
 
 - Day-by-day planning
 - Activity sequencing
@@ -218,241 +274,175 @@ Responsibilities include:
 
 ---
 
-## Agentic AI Workflow
+# 🔀 Agent Orchestration
 
-The system follows an agentic workflow rather than a simple prompt-response architecture.
+**LangGraph** acts as the orchestrator of the multi-agent system.
 
-    User Request
-         |
-         v
-    Understand Requirements
-         |
-         v
-    Create Travel State
-         |
-         v
-    Agent Orchestration
-         |
-         +--> Destination Research
-         |
-         +--> Stay Research
-         |
-         +--> Activity Research
-         |
-         +--> Weather Research
-         |
-         +--> Food Research
-         |
-         v
-    Combine Information
-         |
-         v
-    Generate Itinerary
-         |
-         v
-    Validate Structured Result
-         |
-         v
-    Return Final Travel Plan
+The orchestrator manages:
 
----
-
-## Shared State
-
-The system maintains a shared travel-planning state that allows agents to exchange information.
-
-Example state:
-
-    TravelState
-
-    - destination
-    - travel_dates
-    - duration
-    - travelers
-    - budget
-    - preferences
-    - destination_data
-    - stay_options
-    - activities
-    - restaurants
-    - weather
-    - itinerary
-
-The shared state allows the output of one agent to become available to other agents.
-
----
-
-## Orchestration with LangGraph
-
-LangGraph is used as the orchestration layer.
-
-It manages:
-
-- Nodes
-- Edges
-- Shared state
 - Agent execution
+- Workflow progression
+- Shared state
+- Agent dependencies
 - Conditional routing
 - Parallel execution
-- Workflow progression
-- Stateful execution
+- Final result generation
 
 Conceptually:
 
-    LangGraph
-    Orchestrator
-          |
-    +-----+-----+-----+
-    |           |     |
-    v           v     v
-    Destination  Stay  Activities
-    Agent        Agent Agent
-    |           |     |
-    +-----------+-----+
-                |
-                v
-          Itinerary Agent
+    User Request
+         │
+         ▼
+    ┌───────────────┐
+    │   LangGraph   │
+    │ Orchestrator  │
+    └───────┬───────┘
+            │
+       ┌────┼────┐
+       │    │    │
+       ▼    ▼    ▼
+     Stay Weather Activity
+     Agent Agent   Agent
+       │    │      │
+       └────┼──────┘
+            │
+            ▼
+      Itinerary Agent
+            │
+            ▼
+       Final Result
 
 ---
 
-## Conditional Workflows
+# 🧠 Shared State
 
-The system can make workflow decisions based on the current state or agent results.
+Agents need to exchange information during the workflow.
+
+The system maintains a shared travel state.
 
 Example:
 
-    Weather Result
-          |
-          v
-    Suitable for Outdoor Activities?
-          |
-       +--+--+
-       |     |
-      Yes    No
-       |     |
-       v     v
-    Outdoor Indoor
-    Activities Activities
+    TravelState
 
-Conditional routing allows the system to adapt its workflow instead of following one fixed path.
+    ├── destination
+    ├── travel_dates
+    ├── duration
+    ├── travelers
+    ├── budget
+    ├── preferences
+    ├── destination_data
+    ├── stay_options
+    ├── activities
+    ├── restaurants
+    ├── weather
+    └── itinerary
 
----
-
-## Parallel Workflows
-
-Independent travel-planning tasks can be executed in parallel.
-
-For example:
-
-    Travel Request
-          |
-          v
-    Orchestrator
-          |
-    +-----+-----+-----+
-    |           |     |
-    v           v     v
-    Stay      Weather Activities
-    Agent      Agent     Agent
-    |           |         |
-    +-----------+---------+
-                |
-                v
-          Itinerary Agent
-
-Parallel execution can reduce unnecessary waiting and demonstrates practical workflow orchestration.
+This allows information produced by one agent to become available to other agents.
 
 ---
 
-## Tool Calling
+# 🔧 Tool Calling
 
-Agents can interact with external tools to retrieve real-world information.
+Agents can use external tools when additional information is required.
 
     Agent
-      |
-      v
-    LLM
-      |
-      v
+      │
+      ▼
+     LLM
+      │
+      ▼
     Tool Selection
-      |
-      v
+      │
+      ▼
     External Tool
-      |
-      v
+      │
+      ▼
     API / Service
-      |
-      v
+      │
+      ▼
     Tool Result
-      |
-      v
+      │
+      ▼
     Agent
+      │
+      ▼
+    Structured Result
 
 Potential tools include:
 
-- Web search
-- Weather lookup
-- Places search
-- Restaurant search
-- Location services
-- Travel information services
+- 🔎 Web Search
+- 🌤️ Weather
+- 📍 Places
+- 🍴 Restaurants
+- 🗺️ Maps
+- 🌐 Travel Information
 
 ---
 
-## Model Context Protocol
+# 🔌 Model Context Protocol (MCP)
 
-The project incorporates Model Context Protocol (MCP) as part of its advanced Agentic AI architecture.
+AI Travel Planner incorporates **Model Context Protocol (MCP)** as an advanced tool-integration capability.
 
 MCP provides a standardized way for AI applications to interact with external tools and resources.
 
 Conceptually:
 
     AI Agent
-       |
-       v
-      MCP
-       |
-       +----> Search Tools
-       |
-       +----> Weather Tools
-       |
-       +----> Places Tools
-       |
-       +----> Travel Tools
+        │
+        ▼
+       MCP
+        │
+        ├── Search Tools
+        ├── Weather Tools
+        ├── Places Tools
+        └── Travel Tools
+
+MCP allows tool integrations to follow a standardized protocol instead of every integration requiring a completely different communication pattern.
 
 ---
 
-## LLM Architecture
+# 🧠 LLM Architecture
 
-Google Gemini is the initial LLM provider.
+The initial LLM provider is **Google Gemini**.
 
-The application uses an LLM abstraction layer so that agent logic is not tightly coupled to a single provider.
+Gemini is responsible for:
 
-    LLM Interface
-          |
-    +-----+-----+-----+
-    |           |     |
-    v           v     v
-    Gemini     OpenAI Anthropic
+- Understanding user requirements
+- Agent reasoning
+- Travel recommendations
+- Information summarization
+- Itinerary generation
+- Structured response generation
 
-Gemini is the primary implementation, while the abstraction keeps the architecture extensible.
+The architecture uses an LLM abstraction layer.
+
+    ┌──────────────────┐
+    │   LLM Interface  │
+    └────────┬─────────┘
+             │
+       ┌─────┼─────┐
+       │     │     │
+       ▼     ▼     ▼
+    Gemini OpenAI Anthropic
+
+Gemini is the primary provider, while the abstraction allows future provider changes without rewriting the complete agent architecture.
 
 ---
 
-## Structured Output
+# 📊 Structured Output
 
-Agent results are represented using structured schemas instead of relying entirely on free-form text.
+LLM responses are represented using structured schemas where required.
 
-Examples:
+Example models:
 
-- DestinationResult
-- StayResult
-- ActivityResult
-- WeatherResult
-- RestaurantResult
-- ItineraryResult
+- `DestinationResult`
+- `StayResult`
+- `ActivityResult`
+- `WeatherResult`
+- `RestaurantResult`
+- `ItineraryResult`
 
-Structured outputs make information easier to:
+Structured output makes information easier to:
 
 - Validate
 - Store
@@ -460,104 +450,313 @@ Structured outputs make information easier to:
 - Process programmatically
 - Display in the frontend
 
-Pydantic is used for data validation and structured models.
+**Pydantic** is used for validation and structured data models.
 
 ---
 
-## Technology Stack
+# 🔀 Conditional Workflows
 
-### Programming Language
+The system can make workflow decisions based on the current state or agent results.
 
-- Python
+Example:
 
-### AI / LLM
+    Weather Result
+          │
+          ▼
+    Suitable for Outdoor Activities?
+          │
+       ┌──┴──┐
+       │     │
+      YES    NO
+       │     │
+       ▼     ▼
+    Outdoor Indoor
+    Activities Activities
 
-- Google Gemini
-- LangChain
-- LangGraph
-
-### Agentic AI
-
-- AI Agents
-- Multi-Agent Architecture
-- Agent Orchestration
-- Shared State
-- Tool Calling
-- Structured Output
-- Conditional Workflows
-- Parallel Workflows
-- MCP
-
-### Backend
-
-- FastAPI
-- Pydantic
-- Uvicorn
-
-### Frontend
-
-- Streamlit
-
-### External Services
-
-- Web Search API
-- Weather API
-- Places / Maps API
-- Travel-related APIs
-
-### Database / Persistence
-
-- PostgreSQL
-- SQLAlchemy
-- Async database support
-
-### Testing
-
-- Pytest
-
-### DevOps
-
-- Docker
-- GitHub Actions
-
-### Version Control
-
-- Git
-- GitHub
+Conditional routing allows the workflow to adapt dynamically instead of always following a fixed sequence.
 
 ---
 
-## Project Architecture by Layer
+# ⚡ Parallel Workflows
 
-    Frontend
+Some travel-planning tasks are independent and can be executed in parallel.
+
+For example:
+
+    Travel Request
+          │
+          ▼
+    LangGraph Orchestrator
+          │
+      ┌───┼────────┐
+      │   │        │
+      ▼   ▼        ▼
+    Stay Weather Activity
+    Agent Agent   Agent
+      │   │        │
+      └───┼────────┘
+          │
+          ▼
+    Itinerary Agent
+
+Parallel execution reduces unnecessary waiting and demonstrates practical workflow orchestration.
+
+---
+
+# 🖥️ Frontend
+
+The frontend is built using **Streamlit**.
+
+The interface allows users to provide:
+
+- 📍 Destination
+- 📅 Travel dates
+- 🌙 Duration
+- 👥 Number of travelers
+- 💰 Budget
+- ❤️ Travel preferences
+
+The generated results can include:
+
+- Destination information
+- Hotel recommendations
+- Weather
+- Activities
+- Restaurants
+- Day-by-day itinerary
+- Estimated budget
+
+---
+
+# ⚡ Backend
+
+The backend is built using **FastAPI**.
+
+FastAPI is responsible for:
+
+- REST API endpoints
+- Request validation
+- Calling the LangGraph workflow
+- Returning structured responses
+- Error handling
+
+Architecture:
+
     Streamlit
-        |
-        v
-    Backend
+        │
+        ▼
     FastAPI
-        |
-        v
-    Agentic AI Layer
-    LangGraph + LangChain
-        |
-        v
+        │
+        ▼
+    LangGraph
+        │
+        ▼
     Multi-Agent System
-        |
-        v
-    LLM Layer
-    Google Gemini
-        |
-        v
-    Tool Layer
-    Search + Weather + Places + MCP
-        |
-        v
-    Persistence Layer
-    PostgreSQL
 
 ---
 
-## Example Input
+# 🗄️ Persistence
+
+The application supports persistence for stateful workflows and travel-planning sessions.
+
+PostgreSQL is used as the database layer where persistent application data is required.
+
+Potential persisted information includes:
+
+- Travel requests
+- Workflow state
+- Conversation/session information
+- Planning results
+- Checkpoints
+
+---
+
+# 🧪 Testing
+
+Testing is implemented using **Pytest**.
+
+Testing areas include:
+
+- Input validation
+- Utility functions
+- Agent behavior
+- Structured outputs
+- Tool integrations
+- LangGraph workflows
+- FastAPI endpoints
+- Integration behavior
+
+Run tests with:
+
+    pytest
+
+---
+
+# 🐳 Docker
+
+The application can be containerized using Docker.
+
+Build:
+
+    docker build -t ai-travel-planner .
+
+Run:
+
+    docker run --env-file .env -p 8000:8000 ai-travel-planner
+
+Docker provides a reproducible application environment.
+
+---
+
+# 🔄 CI/CD
+
+GitHub Actions is used for automation.
+
+The CI pipeline can perform:
+
+    Git Push
+       │
+       ▼
+    GitHub Actions
+       │
+       ├── Install Dependencies
+       │
+       ├── Run Tests
+       │
+       ├── Validate Application
+       │
+       ▼
+    Build / Deployment
+
+---
+
+# 🛠️ Technology Stack
+
+| Category | Technologies |
+|----------|--------------|
+| Language | Python |
+| LLM | Google Gemini |
+| AI Framework | LangChain |
+| Agent Orchestration | LangGraph |
+| Agentic AI | Multi-Agent, Tool Calling, MCP |
+| Backend | FastAPI |
+| Validation | Pydantic |
+| Frontend | Streamlit |
+| Search | Web Search API |
+| Weather | Weather API |
+| Places | Maps / Places API |
+| Database | PostgreSQL |
+| ORM | SQLAlchemy |
+| Testing | Pytest |
+| Containerization | Docker |
+| CI/CD | GitHub Actions |
+| Version Control | Git, GitHub |
+
+---
+
+# 📁 Project Structure
+
+    ai-travel-planner/
+    │
+    ├── docs/
+    │   ├── 01-project-overview.md
+    │   ├── 02-research.md
+    │   └── architecture/
+    │
+    ├── src/
+    │   ├── agents/
+    │   ├── graph/
+    │   ├── tools/
+    │   ├── models/
+    │   ├── services/
+    │   ├── config/
+    │   └── ...
+    │
+    ├── tests/
+    │   ├── unit/
+    │   ├── integration/
+    │   └── ...
+    │
+    ├── .env.example
+    ├── .gitignore
+    ├── Dockerfile
+    ├── README.md
+    ├── requirements.txt
+    └── ...
+
+The final structure may evolve during implementation and refactoring.
+
+---
+
+# 🚀 Installation
+
+## 1. Clone the Repository
+
+    git clone https://github.com/Musharraf-Bubere/ai-travel-planner.git
+
+    cd ai-travel-planner
+
+---
+
+## 2. Create a Virtual Environment
+
+### Windows
+
+    python -m venv venv
+
+    venv\Scripts\activate
+
+### Linux / macOS
+
+    python3 -m venv venv
+
+    source venv/bin/activate
+
+---
+
+## 3. Install Dependencies
+
+    pip install -r requirements.txt
+
+---
+
+## 4. Configure Environment Variables
+
+Create a `.env` file based on `.env.example`.
+
+Example:
+
+    GOOGLE_API_KEY=your_google_api_key
+
+    TAVILY_API_KEY=your_tavily_api_key
+
+    WEATHER_API_KEY=your_weather_api_key
+
+    GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+
+    DATABASE_URL=your_database_url
+
+    LLM_PROVIDER=gemini
+
+Never commit API keys or other secrets to GitHub.
+
+---
+
+# ▶️ Running the Application
+
+## Start FastAPI
+
+    uvicorn src.main:app --reload
+
+## Start Streamlit
+
+    streamlit run src/frontend/app.py
+
+The exact commands may change depending on the final project structure.
+
+---
+
+# 🧳 Example Input
 
     Destination: Goa
 
@@ -575,12 +774,12 @@ Pydantic is used for data validation and structured models.
 
 ---
 
-## Example Output
+# 📅 Example Output
 
     GOA — 5 DAY TRAVEL PLAN
 
-    Travelers: 2
-    Budget: ₹30,000
+    👥 Travelers: 2
+    💰 Budget: ₹30,000
 
     DAY 1
     - Arrival
@@ -620,178 +819,113 @@ Pydantic is used for data validation and structured models.
 
     Estimated Total: ₹28,000
 
-The actual output depends on the user's requirements and the information returned by the connected tools and APIs.
+Actual recommendations and costs depend on the user's requirements and the information returned by external services.
 
 ---
 
-## Project Structure
-
-    ai-travel-planner/
-    |
-    +-- docs/
-    |   +-- 01-project-overview.md
-    |   +-- 02-research.md
-    |   +-- architecture/
-    |
-    +-- src/
-    |
-    +-- tests/
-    |
-    +-- .env.example
-    +-- .gitignore
-    +-- Dockerfile
-    +-- README.md
-    +-- requirements.txt
-
-The exact structure may evolve as the application is implemented and refactored.
-
----
-
-## Installation
-
-### 1. Clone the Repository
-
-    git clone https://github.com/Musharraf-Bubere/ai-travel-planner.git
-    cd ai-travel-planner
-
-### 2. Create a Virtual Environment
-
-Windows:
-
-    python -m venv venv
-    venv\Scripts\activate
-
-Linux / macOS:
-
-    python3 -m venv venv
-    source venv/bin/activate
-
-### 3. Install Dependencies
-
-    pip install -r requirements.txt
-
-### 4. Configure Environment Variables
-
-Create a `.env` file based on `.env.example`.
-
-Required API keys and configuration may include:
-
-    GOOGLE_API_KEY=your_google_api_key
-    TAVILY_API_KEY=your_tavily_api_key
-    WEATHER_API_KEY=your_weather_api_key
-    GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-    DATABASE_URL=your_database_url
-
-    LLM_PROVIDER=gemini
-
-Never commit API keys or other secrets to GitHub.
-
----
-
-## Running the Application
-
-### Start the FastAPI Backend
-
-    uvicorn src.main:app --reload
-
-### Start the Streamlit Frontend
-
-    streamlit run src/frontend/app.py
-
-The exact commands may vary depending on the final project structure.
-
----
-
-## Testing
-
-Run the test suite using:
-
-    pytest
-
-Testing covers important application components such as:
-
-- Validation
-- Utility functions
-- Tool integrations
-- Agent outputs
-- LangGraph workflows
-- API endpoints
-- Integration behavior
-
----
-
-## Docker
-
-The application can be containerized using Docker.
-
-Build the image:
-
-    docker build -t ai-travel-planner .
-
-Run the container:
-
-    docker run --env-file .env -p 8000:8000 ai-travel-planner
-
----
-
-## CI/CD
-
-GitHub Actions is used to automate development checks.
-
-The CI pipeline can perform:
-
-    Git Push
-       |
-       v
-    GitHub Actions
-       |
-       +--> Install Dependencies
-       |
-       +--> Run Tests
-       |
-       +--> Validate Application
-       |
-       v
-    Build / Deployment
-
----
-
-## Security
+# 🔐 Security
 
 The application follows basic security practices:
 
 - API keys stored in environment variables
 - Secrets excluded from Git
 - Input validation
-- API error handling
-- Controlled external API access
+- Error handling
 - No hard-coded credentials
+- Controlled external API access
 - Environment-specific configuration
 
 ---
 
-## Engineering Practices
+# ⚠️ Limitations
 
-The project follows software engineering principles including:
+AI Travel Planner depends on external services and APIs.
 
-- Modular architecture
-- Separation of concerns
-- Type hints
-- Pydantic validation
-- Environment-based configuration
-- Error handling
-- Logging
-- Automated testing
-- Git version control
-- CI/CD
-- Containerization
-- Documentation
+Therefore:
+
+- Travel information may change
+- Prices may change
+- Weather forecasts may change
+- API availability may vary
+- External API rate limits may apply
+- Recommendations may not always be perfect
+- LLM-generated information should be verified before real-world bookings
+
+The application is intended as an intelligent travel-planning assistant and not as a guaranteed booking or travel advisory service.
 
 ---
 
-## Development Workflow
+# 🔮 Future Enhancements
 
-The project follows this development workflow:
+Potential future improvements include:
+
+- ✈️ Flight booking integrations
+- 🏨 Hotel booking integrations
+- 💰 Real-time price comparison
+- 🗺️ Interactive maps
+- 👤 User accounts
+- 🧠 Advanced long-term memory
+- 🎙️ Voice-based travel planning
+- 🖼️ Multimodal travel planning
+- 📸 Image-based destination exploration
+- 🌍 More travel providers
+- 📊 Advanced agent evaluation
+- 🔍 Enhanced observability
+
+---
+
+# 🎓 Learning Outcomes
+
+This project demonstrates practical experience with:
+
+### Generative AI
+
+- Large Language Models
+- Prompt Engineering
+- Structured Generation
+
+### Agentic AI
+
+- AI Agents
+- Multi-Agent Systems
+- Agent Orchestration
+- Tool Calling
+- Shared State
+- Conditional Workflows
+- Parallel Workflows
+- MCP
+
+### LLM Engineering
+
+- Gemini Integration
+- LLM Abstraction
+- Structured Outputs
+- External Tool Integration
+- Error Handling
+
+### Backend Engineering
+
+- FastAPI
+- REST APIs
+- Pydantic
+- Request Validation
+- Exception Handling
+- Persistence
+
+### Software Engineering
+
+- Modular Architecture
+- Automated Testing
+- Git
+- GitHub
+- Docker
+- CI/CD
+
+---
+
+# 📈 Development Workflow
+
+The project follows a structured learning and development workflow:
 
     Understand
         ↓
@@ -813,147 +947,30 @@ The project follows this development workflow:
         ↓
     GitHub
 
-This workflow ensures that implementation is supported by conceptual understanding, research, testing, and documentation.
+This approach ensures that each major implementation is supported by conceptual understanding, research, testing, refactoring, and documentation.
 
 ---
 
-## Key Concepts Demonstrated
+# 🌟 Project Highlights
 
-### Generative AI
-
-- Large Language Models
-- Prompt Engineering
-- Structured Generation
-
-### Agentic AI
-
-- AI Agents
-- Tool Calling
-- Agent Planning
-- Multi-Agent Systems
-- Agent Orchestration
-- Shared State
-- Conditional Workflows
-- Parallel Workflows
-- MCP
-
-### LLM Engineering
-
-- Model Integration
-- LLM Abstraction
-- Structured Outputs
-- Error Handling
-- External Tool Integration
-
-### Backend Engineering
-
-- REST APIs
-- FastAPI
-- Request Validation
-- Exception Handling
-- Persistence
-
-### Software Engineering
-
-- Modular Architecture
-- Testing
-- Git
-- GitHub
-- Docker
-- CI/CD
+| Area | Implementation |
+|------|----------------|
+| 🤖 Agentic AI | Multi-Agent Travel Planning |
+| 🔀 Orchestration | LangGraph |
+| 🧠 LLM | Google Gemini |
+| 🔧 Tools | External Travel APIs |
+| 🔌 Protocol | MCP |
+| 📊 State | Shared Stateful Workflow |
+| ⚡ Backend | FastAPI |
+| 🖥️ Frontend | Streamlit |
+| 🗄️ Persistence | PostgreSQL |
+| 🧪 Testing | Pytest |
+| 🐳 DevOps | Docker |
+| 🔄 CI/CD | GitHub Actions |
 
 ---
 
-## Limitations
-
-AI Travel Planner depends on external services and APIs.
-
-Therefore:
-
-- Travel information may change
-- API availability may vary
-- Recommendations may not always be perfect
-- Prices may change over time
-- Weather forecasts may change
-- External API rate limits may apply
-- LLM-generated information should be verified before making real-world bookings
-
-The application is intended as an intelligent planning assistant and not as a guaranteed booking or travel advisory service.
-
----
-
-## Future Improvements
-
-Potential future improvements include:
-
-- Flight booking integrations
-- Hotel booking integrations
-- Real-time price comparison
-- Maps visualization
-- User accounts
-- Advanced memory
-- More travel providers
-- Voice-based travel planning
-- Multimodal travel planning
-- Image-based destination exploration
-- Personalized long-term travel preferences
-- Advanced agent evaluation
-- Enhanced observability
-
-These features are outside the core project scope unless they provide meaningful value.
-
----
-
-## Learning Outcomes
-
-By completing this project, the following practical skills are demonstrated:
-
-- Building LLM-powered applications
-- Designing AI agents
-- Designing multi-agent systems
-- Building LangGraph workflows
-- Managing shared agent state
-- Implementing tool calling
-- Integrating external APIs
-- Working with structured LLM outputs
-- Designing conditional workflows
-- Designing parallel workflows
-- Using MCP
-- Building FastAPI backends
-- Building Streamlit interfaces
-- Implementing persistence
-- Writing automated tests
-- Containerizing applications
-- Building CI/CD workflows
-- Deploying AI applications
-
----
-
-## Project Goal
-
-The goal of AI Travel Planner is to demonstrate how Agentic AI can solve a practical real-world problem through:
-
-    LLM
-      +
-    AI Agents
-      +
-    Multi-Agent Collaboration
-      +
-    LangGraph Orchestration
-      +
-    Tools
-      +
-    External APIs
-      +
-    Structured Data
-      +
-    Software Engineering
-
-The result is a complete Multi-Agent Travel Planning System capable of transforming user travel requirements into a personalized and structured itinerary.
-
----
-
-## Author
+# 👨‍💻 Author
 
 **Musharraf Bubéré**
 
@@ -961,6 +978,6 @@ GitHub: https://github.com/Musharraf-Bubere
 
 ---
 
-## License
+# 📄 License
 
-This project is intended for educational and portfolio purposes.
+This project is intended for educational, portfolio, and demonstration purposes.
