@@ -12,6 +12,8 @@ The current implementation focuses on establishing the project's core foundation
 - Destination Agent
 - Google Gemini integration
 - Environment-based configuration
+- LLM-powered destination analysis
+- Prompt construction separation
 - Automated testing
 
 Only functionality that has actually been implemented is documented here.
@@ -20,7 +22,7 @@ Only functionality that has actually been implemented is documented here.
 
 ## 2. Current Implementation
 
-The current system follows this basic flow:
+The current system follows this flow:
 
     User Input
         ↓
@@ -30,9 +32,11 @@ The current system follows this basic flow:
         ↓
     Destination Agent
         ↓
+    Gemini 3.5 Flash-Lite
+        ↓
+    Destination Analysis
+        ↓
     Updated TravelState
-
-The Gemini LLM service has also been integrated independently and successfully tested.
 
 ---
 
@@ -43,19 +47,19 @@ A Python virtual environment is used to isolate the project's dependencies.
     ai-travel-planner/
     └── venv/
 
+The project currently uses Python 3.14.6.
+
 The virtual environment is activated before running the project or tests.
 
 Example:
 
     (venv) PS D:\ai-travel-planner>
 
-The project uses Python 3.14.6 in the current development environment.
-
 ---
 
 ## 4. Dependencies
 
-The initial dependencies are maintained in `requirements.txt`.
+The initial project dependencies are maintained in `requirements.txt`.
 
     langgraph
     langchain
@@ -98,7 +102,7 @@ Current state structure:
 
 `TravelState` provides a common structure for information flowing through the travel-planning workflow.
 
-It contains two major categories:
+It contains two major categories.
 
 ### User Input
 
@@ -118,7 +122,7 @@ It contains two major categories:
 - Restaurants
 - Itinerary
 
-Not all fields are populated yet. The current implementation only uses the fields required by the implemented workflow.
+Not all fields are populated yet. They have been defined as part of the planned shared state.
 
 ---
 
@@ -162,9 +166,9 @@ Current implementation:
 
 LangGraph provides the workflow orchestration layer for the project.
 
-The current graph is intentionally simple because the project is being developed incrementally.
+The current graph is intentionally simple and contains one implemented agent.
 
-Future agents and workflow patterns can be added to the graph as the project grows.
+Additional agents and workflow patterns will be added incrementally.
 
 ---
 
@@ -176,35 +180,74 @@ File:
 
     src/agents/destination_agent.py
 
-Current implementation:
+The Destination Agent is responsible for:
 
-    from src.state import TravelState
+1. Reading travel information from `TravelState`
+2. Building a destination research prompt
+3. Obtaining the configured LLM
+4. Invoking Gemini
+5. Storing the generated analysis in `TravelState`
 
+Current flow:
 
-    def destination_agent(state: TravelState) -> TravelState:
-        state["destination_data"] = {
-            "message": f"Researching {state['destination']}"
-        }
-
-        return state
-
-### Current Responsibility
-
-The current Destination Agent demonstrates how an agent/node can:
-
-1. Receive the shared `TravelState`
-2. Read information from the state
-3. Perform processing
-4. Add information to the state
-5. Return the updated state
-
-At this stage, the agent does not perform real external destination research.
-
-It currently generates a simple destination research message.
+    TravelState
+        ↓
+    Destination Agent
+        ↓
+    Build Prompt
+        ↓
+    Gemini 3.5 Flash-Lite
+        ↓
+    Generated Analysis
+        ↓
+    destination_data
 
 ---
 
-## 8. Gemini LLM Integration
+## 8. Destination Prompt Construction
+
+Prompt construction has been separated into its own function:
+
+    build_destination_prompt(state)
+
+This function receives the current `TravelState` and constructs a prompt containing:
+
+- Destination
+- Duration
+- Number of travelers
+- Budget
+- Preferences
+
+The prompt asks Gemini to provide a concise destination overview covering:
+
+1. Why the destination is suitable for the trip
+2. Recommended areas to explore
+3. Important travel considerations
+4. Suggestions based on the traveler's preferences
+
+This separation keeps prompt construction independent from the main agent execution logic.
+
+---
+
+## 9. LLM-Powered Destination Analysis
+
+The Destination Agent now invokes the Gemini model using the shared LLM service.
+
+The response is obtained using:
+
+    response = llm.invoke(prompt)
+
+The generated content is then stored in the shared state:
+
+    state["destination_data"] = {
+        "analysis": response.content
+    }
+
+This means the Destination Agent is now genuinely LLM-powered rather than returning a hard-coded placeholder message.
+
+---
+
+## 10. LLM Service
 
 Google Gemini has been integrated through LangChain.
 
@@ -222,7 +265,7 @@ The integration uses:
 
 The API key is loaded from environment variables using `python-dotenv`.
 
-Current configuration:
+Current environment configuration:
 
     GOOGLE_API_KEY=<your-api-key>
     GEMINI_MODEL=gemini-3.5-flash-lite
@@ -231,21 +274,21 @@ The actual API key must never be committed to Git.
 
 ---
 
-## 9. Environment-Based Model Configuration
+## 11. Environment-Based Model Configuration
 
-The Gemini model name is not hard-coded directly inside the LLM creation function.
+The Gemini model name is configured through the environment rather than being hard-coded inside the LLM creation function.
 
-Instead, the application reads:
+The service reads:
 
     GEMINI_MODEL
 
 from the environment.
 
-The implementation uses a default value:
+A default model is provided:
 
     gemini-3.5-flash-lite
 
-This provides a simple configuration layer that allows the model to be changed without modifying the Python implementation.
+This allows the model to be changed without modifying the Python implementation.
 
 Current configuration flow:
 
@@ -266,7 +309,7 @@ Current configuration flow:
 
 ---
 
-## 10. API Key Validation
+## 12. API Key Validation
 
 The LLM service checks whether `GOOGLE_API_KEY` is available.
 
@@ -278,7 +321,46 @@ This prevents the application from attempting to create the Gemini client withou
 
 ---
 
-## 11. Testing
+## 13. LLM Service and Agent Separation
+
+The project intentionally separates the LLM service from agent behavior.
+
+### LLM Service
+
+Responsible for:
+
+- Loading configuration
+- Validating the API key
+- Creating the Gemini model client
+
+### Destination Agent
+
+Responsible for:
+
+- Understanding the travel state
+- Constructing the task-specific prompt
+- Invoking the LLM
+- Processing the response
+- Updating the shared state
+
+Architecture:
+
+    Destination Agent
+          │
+          ▼
+       get_llm()
+          │
+          ▼
+    LLM Service
+          │
+          ▼
+    Gemini 3.5 Flash-Lite
+
+This separation will support the future LLM abstraction layer.
+
+---
+
+## 14. Testing
 
 The project uses Pytest for automated testing.
 
@@ -291,13 +373,13 @@ Current test files:
 
 ---
 
-## 12. State Test
+## 15. State Test
 
 File:
 
     tests/test_state.py
 
-The state test verifies that the `TravelState` can contain the expected travel information.
+The state test verifies that `TravelState` can contain the expected travel information.
 
 It currently checks values such as:
 
@@ -309,7 +391,7 @@ It currently checks values such as:
 
 ---
 
-## 13. Graph Test
+## 16. Graph Test
 
 File:
 
@@ -318,34 +400,39 @@ File:
 The graph test verifies that:
 
 1. The LangGraph workflow can be built.
-2. The initial state can be passed into the graph.
+2. The initial travel state can be passed into the graph.
 3. The Destination Agent executes.
-4. The destination information remains available.
-5. The Destination Agent adds `destination_data` to the state.
+4. The destination remains available.
+5. Gemini-generated analysis is stored in `destination_data`.
 
-Current expected result:
+The test verifies the presence of generated analysis rather than matching exact LLM wording.
 
-    destination_data["message"]
-    =
-    "Researching Goa"
+Current assertion:
+
+    assert result["destination_data"]["analysis"]
+
+This is important because LLM responses can vary between invocations.
 
 ---
 
-## 14. LLM Connection Test
+## 17. LLM Connection Test
 
 File:
 
     tests/test_llm.py
 
-The LLM test verifies that the Gemini model can be created and invoked successfully.
+The LLM test verifies that:
 
-The test performs a simple invocation:
+1. The Gemini model can be created.
+2. The configured API key is accepted.
+3. Gemini can successfully process a prompt.
+4. The response contains generated content.
+
+The test uses:
 
     response = llm.invoke(
         "Say hello in one short sentence."
     )
-
-The test then verifies that the response contains content.
 
 The test currently passes successfully with:
 
@@ -353,7 +440,7 @@ The test currently passes successfully with:
 
 ---
 
-## 15. Current Test Result
+## 18. Current Test Result
 
 The complete test suite was executed using:
 
@@ -373,7 +460,7 @@ The warning originates from a dependency used by the Google GenAI library and do
 
 ---
 
-## 16. Current Project Structure
+## 19. Current Project Structure
 
 The current implementation structure is:
 
@@ -402,9 +489,9 @@ The current implementation structure is:
     │       └── llm.py
     │
     ├── tests/
-    │   ├── test_state.py
     │   ├── test_graph.py
-    │   └── test_llm.py
+    │   ├── test_llm.py
+    │   └── test_state.py
     │
     ├── .gitignore
     ├── README.md
@@ -412,42 +499,63 @@ The current implementation structure is:
 
 ---
 
-## 17. Current Architecture
+## 20. Current Architecture
 
-The implementation currently consists of two connected foundations:
+The current implementation can be represented as:
 
-### Workflow Foundation
-
-    TravelState
-        ↓
-    LangGraph
-        ↓
+    User Travel Information
+            │
+            ▼
+       TravelState
+            │
+            ▼
+       LangGraph
+            │
+            ▼
     Destination Agent
-        ↓
-    Updated TravelState
-
-### LLM Foundation
-
-    Environment Configuration
-        ↓
-    LLM Service
-        ↓
-    ChatGoogleGenerativeAI
-        ↓
+            │
+            ├── Build Prompt
+            │
+            ▼
+        LLM Service
+            │
+            ▼
     Gemini 3.5 Flash-Lite
+            │
+            ▼
+    Destination Analysis
+            │
+            ▼
+       TravelState
 
-The LLM service is currently tested independently.
-
-It has not yet been connected to the Destination Agent.
+The LLM service is shared independently from the agent logic.
 
 ---
 
-## 18. What Has Not Been Implemented Yet
+## 21. Current Capabilities
+
+The current implementation can:
+
+- Represent travel requirements using shared state
+- Build and execute a LangGraph workflow
+- Execute a Destination Agent
+- Construct a destination-specific prompt
+- Connect to Gemini 3.5 Flash-Lite
+- Generate destination analysis using the LLM
+- Store the generated analysis in the shared state
+- Configure the Gemini model through environment variables
+- Validate the Gemini API key
+- Automatically test the core components
+
+---
+
+## 22. What Has Not Been Implemented Yet
 
 The following features are part of the planned project but are not yet implemented:
 
-- LLM-powered Destination Agent
-- Real destination research
+- Structured output
+- Pydantic travel response schemas
+- Real destination research tools
 - Hotel/Stay Agent
 - Activity Agent
 - Weather Agent
@@ -455,16 +563,15 @@ The following features are part of the planned project but are not yet implement
 - Itinerary Agent
 - External travel APIs
 - Tool calling
-- Structured output
-- Pydantic travel schemas
 - Parallel workflows
 - Conditional workflows
 - MCP integration
+- LLM provider abstraction
 - FastAPI backend
 - Streamlit frontend
 - PostgreSQL persistence
 - Advanced error handling
-- Full test suite for all agents and tools
+- Full test coverage for agents and tools
 - Docker
 - GitHub Actions
 - GCP deployment
@@ -473,11 +580,11 @@ These features will be implemented incrementally.
 
 ---
 
-## 19. Development Principle
+## 23. Development Principle
 
 The project follows an incremental engineering approach.
 
-Each major component should follow:
+Each major component follows:
 
     Understand
         ↓
@@ -499,26 +606,32 @@ Each major component should follow:
         ↓
     GitHub
 
-The current implementation has completed the cycle for the foundational state, graph, Destination Agent, and Gemini LLM integration.
+The current cycle successfully implemented and tested the connection between the Destination Agent and Gemini.
 
 ---
 
-## 20. Next Implementation Goal
+## 24. Next Implementation Goal
 
-The next implementation goal is to connect the Gemini LLM service with the Destination Agent.
+The next major goal is to introduce **structured output** for the Destination Agent.
 
-The intended evolution is:
+Instead of storing unstructured generated text:
 
-    User Travel Request
-            ↓
-       TravelState
-            ↓
-       Destination Agent
-            ↓
-          Gemini
-            ↓
-    Destination Analysis
-            ↓
-    Updated TravelState
+    destination_data = {
+        "analysis": response.content
+    }
 
-This will be the first step toward turning the current LangGraph workflow into a genuinely LLM-powered travel-planning system.
+the agent will eventually produce structured information that can be reliably consumed by later agents.
+
+The intended direction is:
+
+    Gemini
+        ↓
+    Structured Output
+        ↓
+    Pydantic Schema
+        ↓
+    destination_data
+        ↓
+    Future Travel Agents
+
+This will provide a stronger foundation for the multi-agent travel-planning workflow.
