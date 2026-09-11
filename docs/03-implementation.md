@@ -828,3 +828,297 @@ Not yet implemented:
 - Docker
 - GitHub Actions
 - Deployment
+
+## Stay / Hotel Agent Implementation
+
+The Stay Agent is the second agent implemented in the AI Travel Planner.
+
+Its responsibility is to research accommodation options based on the traveler's destination, budget, duration, number of travelers, and preferences.
+
+### Accommodation Schema
+
+The accommodation data structure is defined in:
+
+`src/schemas/stay.py`
+
+The `Accommodation` Pydantic model contains:
+
+- `name`
+- `area`
+- `price_per_night`
+- `rating`
+- `description`
+
+This provides a consistent structure for individual accommodation options.
+
+### StayAnalysis Schema
+
+The Stay Agent uses the `StayAnalysis` Pydantic model as its structured output.
+
+It contains:
+
+- `recommended_area`
+- `accommodation_options`
+- `budget_assessment`
+- `stay_recommendation`
+
+The relationship is:
+
+    StayAnalysis
+    ├── recommended_area
+    ├── accommodation_options
+    │   └── Accommodation
+    ├── budget_assessment
+    └── stay_recommendation
+
+This ensures that the Stay Agent produces predictable output that can be consumed by the rest of the application.
+
+### Accommodation Search Tool
+
+The project implements an accommodation search tool in:
+
+`src/tools/accommodation.py`
+
+The tool is exposed using LangChain's tool interface.
+
+Its current interface is conceptually:
+
+    search_accommodations(
+        destination,
+        budget
+    )
+
+The current implementation uses sample accommodation data so that the tool-calling architecture can be developed and tested independently of an external hotel provider.
+
+The tool returns information such as:
+
+- accommodation name
+- area
+- price per night
+- rating
+- description
+
+The tool implementation can later be replaced with a real external travel or accommodation data source without changing the overall Stay Agent design.
+
+### Gemini Tool Calling
+
+The Stay Agent makes the accommodation search tool available to Gemini using LangChain tool binding.
+
+Conceptually:
+
+    Gemini
+       |
+       +── search_accommodations()
+       |
+       +── Tool Schema
+
+The model can determine when accommodation information is required and request the tool.
+
+Binding the tool does not execute the Python function. The application is responsible for executing the requested tool call.
+
+### Tool Calling Message Flow
+
+The Stay Agent implements the required conversational sequence:
+
+    HumanMessage
+          |
+          v
+    Gemini / AIMessage
+          |
+          v
+      Tool Call
+          |
+          v
+    Accommodation Tool
+          |
+          v
+      Tool Result
+          |
+          v
+     ToolMessage
+          |
+          v
+        Gemini
+          |
+          v
+     Final Response
+
+The original user message, AI tool-call message, and tool result are provided to Gemini in the correct order.
+
+This allows Gemini to use the external tool result when producing the final response.
+
+### Structured Final Response
+
+After the accommodation tool returns its result, the Stay Agent uses the structured LLM helper with `StayAnalysis`.
+
+The flow is:
+
+    Accommodation Tool
+            |
+            v
+       Tool Result
+            |
+            v
+      Structured LLM
+            |
+            v
+       StayAnalysis
+            |
+            v
+       model_dump()
+            |
+            v
+       TravelState
+
+This combines two important Agentic AI capabilities:
+
+- tool calling for obtaining external information
+- structured output for producing predictable application data
+
+### Stay Agent
+
+The Stay Agent is implemented in:
+
+`src/agents/stay_agent.py`
+
+Its responsibilities are separated into:
+
+1. Building the accommodation research prompt
+2. Binding the accommodation search tool
+3. Sending the travel request to Gemini
+4. Detecting the requested tool call
+5. Executing the accommodation tool
+6. Returning the tool result to Gemini
+7. Generating structured `StayAnalysis` output
+8. Storing the result in `TravelState`
+
+### TravelState Integration
+
+The shared graph state was updated so that:
+
+    stay_options: StayAnalysis
+
+The current state therefore contains typed outputs from both implemented agents:
+
+    TravelState
+    ├── destination_data: DestinationAnalysis
+    └── stay_options: StayAnalysis
+
+This creates a clear data contract between agents and the LangGraph workflow.
+
+### LangGraph Integration
+
+The Stay Agent was added as the second node in the travel graph.
+
+The current graph is:
+
+    START
+      |
+      v
+    Destination Agent
+      |
+      v
+    Stay Agent
+      |
+      v
+    END
+
+The Destination Agent executes first, followed by the Stay Agent.
+
+Both agents operate on the shared `TravelState`.
+
+### Current Multi-Agent Architecture
+
+The current implementation can be represented as:
+
+    User Travel Request
+            |
+            v
+       TravelState
+            |
+            v
+    LangGraph Orchestrator
+            |
+            v
+    Destination Agent
+            |
+            | Structured Output
+            v
+    DestinationAnalysis
+            |
+            v
+        Stay Agent
+            |
+            | Tool Calling
+            v
+    Accommodation Tool
+            |
+            | Tool Result
+            v
+        Gemini
+            |
+            | Structured Output
+            v
+       StayAnalysis
+            |
+            v
+       TravelState
+            |
+            v
+           END
+
+### Testing
+
+The Stay Agent implementation is covered by automated tests.
+
+Current tests include:
+
+- accommodation tool test
+- destination schema test
+- travel graph test
+- LLM connection test
+- TravelState test
+- StayAnalysis schema test
+
+The complete test suite currently passes:
+
+    6 passed
+
+This confirms that the accommodation tool, schemas, Gemini integration, and two-agent LangGraph workflow are functioning together.
+
+### Current Implementation Status
+
+Completed:
+
+- Gemini LLM integration
+- TravelState
+- LangGraph orchestration
+- Destination Agent
+- DestinationAnalysis schema
+- Structured destination output
+- Accommodation search tool
+- Accommodation schema
+- StayAnalysis schema
+- Gemini tool calling
+- Tool execution flow
+- Structured Stay Agent output
+- Two-agent sequential workflow
+- Automated tests
+
+Not yet implemented:
+
+- Activity Agent
+- Weather Agent
+- Food Agent
+- Itinerary Agent
+- Parallel workflows
+- Conditional workflows
+- Real external accommodation API
+- FastAPI
+- Streamlit
+- Persistence
+- MCP
+- LLM provider abstraction
+- Docker
+- GitHub Actions
+- Deployment

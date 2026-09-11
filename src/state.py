@@ -1,6 +1,7 @@
 from typing import TypedDict
 
 from src.schemas.destination import DestinationAnalysis
+from src.schemas.stay import StayAnalysis
 
 
 class TravelState(TypedDict, total=False):
@@ -14,7 +15,7 @@ class TravelState(TypedDict, total=False):
 
     # Agent outputs
     destination_data: DestinationAnalysis
-    stay_options: list[dict]
+    stay_options: StayAnalysis
     activities: list[dict]
     weather: dict
     restaurants: list[dict]

@@ -1538,3 +1538,317 @@ to:
     destination_data
 
 This provides a stronger foundation for reliable multi-agent communication and future tool integration.
+
+## Stay / Hotel Agent Research
+
+The Stay Agent is responsible for researching and evaluating accommodation options based on the traveler's requirements.
+
+The agent will consider information such as:
+
+- destination
+- travel dates
+- duration
+- number of travelers
+- budget
+- preferred areas
+- traveler preferences
+
+The goal is to provide useful accommodation recommendations while keeping the agent focused on the accommodation domain.
+
+### Why a Separate Stay Agent?
+
+The Destination Agent is responsible for understanding the destination, while the Stay Agent focuses specifically on accommodation.
+
+Separating these responsibilities follows the multi-agent design principle of giving each agent a focused task.
+
+    Travel Request
+          |
+          v
+    LangGraph Orchestrator
+          |
+          +-------------------+
+          |                   |
+          v                   v
+    Destination Agent     Stay Agent
+          |                   |
+          v                   v
+    Destination Data      Stay Data
+
+This separation improves:
+
+- responsibility isolation
+- maintainability
+- testing
+- scalability
+- agent-to-agent communication
+
+### Stay Agent and Tool Calling
+
+The Stay Agent will introduce tool calling into the AI Travel Planner.
+
+Structured output and tool calling solve different problems.
+
+#### Structured Output
+
+Structured output controls the format of the final model response.
+
+    Gemini
+       |
+       v
+    Pydantic Schema
+       |
+       v
+    Structured Result
+
+For example, the Destination Agent produces a `DestinationAnalysis` object with predefined fields.
+
+#### Tool Calling
+
+Tool calling allows the LLM to request an external function when it needs additional information or needs to perform an operation.
+
+    Stay Agent
+         |
+         v
+      Gemini
+         |
+         v
+     Tool Call
+         |
+         v
+    Search Tool
+         |
+         v
+    External Data
+         |
+         v
+      Gemini
+         |
+         v
+    Final Response
+
+The application, rather than the LLM itself, executes the requested tool and provides the tool result back to the model.
+
+### Difference Between Structured Output and Tool Calling
+
+| Concept | Purpose |
+|---|---|
+| Structured Output | Controls the format of model output |
+| Tool Calling | Allows the model to request an external function |
+| Pydantic | Defines and validates structured data |
+| External Tool/API | Provides external information or performs an operation |
+| LangChain | Connects the LLM with tools and model capabilities |
+| LangGraph | Orchestrates the overall application workflow |
+
+Both structured output and tool calling will be used together in the Stay Agent.
+
+### Accommodation Search Tool
+
+The initial tool interface will be designed around a focused function such as:
+
+    search_accommodations(
+        destination,
+        check_in,
+        check_out,
+        travelers,
+        budget
+    )
+
+The tool should return accommodation-related information that the Stay Agent can evaluate.
+
+A conceptual result may contain:
+
+    [
+        {
+            name: "...",
+            area: "...",
+            price: ...,
+            rating: ...,
+            url: "..."
+        }
+    ]
+
+The exact external provider will be selected during implementation after evaluating API availability, access requirements, reliability, and project complexity.
+
+### Provider Independence
+
+The Stay Agent should not be tightly coupled to a specific accommodation provider.
+
+The application should interact with a tool interface such as:
+
+    search_accommodations()
+
+The underlying implementation can later use:
+
+- a hotel/accommodation API
+- a web search provider
+- an MCP-based tool
+- another suitable external travel data source
+
+This provides flexibility and allows the external provider to be changed without redesigning the agent.
+
+### StayAnalysis Schema
+
+The Stay Agent will use structured output similar to the Destination Agent.
+
+A proposed schema is:
+
+    StayAnalysis
+    ├── recommended_area
+    ├── accommodation_options
+    ├── budget_assessment
+    └── stay_recommendation
+
+Individual accommodation records may contain:
+
+    Accommodation
+    ├── name
+    ├── area
+    ├── price
+    ├── rating
+    ├── description
+    └── url
+
+The exact fields will be finalized before implementation.
+
+### LangChain and Tool Calling
+
+LangChain will provide the model/tool integration layer.
+
+Conceptually:
+
+    LangChain
+        |
+        +── LLM
+        |
+        +── Tools
+        |
+        +── Tool Calling
+
+LangGraph will remain responsible for the larger travel-planning workflow:
+
+    LangGraph
+        |
+        +── Destination Agent
+        |
+        +── Stay Agent
+        |
+        +── Activity Agent
+        |
+        +── Food Agent
+        |
+        +── Weather Agent
+        |
+        +── Itinerary Agent
+
+This maintains a clear separation between model/tool interaction and workflow orchestration.
+
+### Planned Stay Agent Flow
+
+The planned implementation is:
+
+    User Travel Request
+            |
+            v
+       TravelState
+            |
+            v
+       Stay Agent
+            |
+            v
+        Gemini LLM
+            |
+            v
+        Tool Calling
+            |
+            v
+    Accommodation Search Tool
+            |
+            v
+      External Data
+            |
+            v
+        Gemini LLM
+            |
+            v
+     Pydantic StayAnalysis
+            |
+            v
+       TravelState
+
+This will be the first agent in the project that combines:
+
+- LLM reasoning
+- external tool usage
+- structured output
+- shared graph state
+
+### Accommodation Data Source Strategy
+
+The project will avoid introducing a complex hotel-booking integration at this stage.
+
+The first implementation will focus on understanding and implementing the tool-calling architecture with a clean tool interface.
+
+The external data source can then be replaced or upgraded without changing the overall agent architecture.
+
+This approach keeps the project intermediate in scope while still demonstrating an important Agentic AI pattern.
+
+### Research Decision
+
+The Stay Agent will use the following design:
+
+    Stay Agent
+         |
+         +── Gemini
+         |
+         +── Accommodation Search Tool
+         |
+         +── Pydantic Structured Output
+         |
+         v
+      TravelState
+
+The implementation will be provider-independent where practical.
+
+MCP may be introduced later as part of the project's advanced Agentic AI features rather than being forced into the first Stay Agent implementation.
+
+### Research Conclusion
+
+The Stay Agent will extend the current AI Travel Planner architecture from a single structured-output agent to an agent capable of interacting with external tools.
+
+The key architectural progression is:
+
+    Destination Agent
+
+        LLM
+         |
+         v
+    Structured Output
+         |
+         v
+    DestinationAnalysis
+
+    Stay Agent
+
+        LLM
+         |
+         v
+    Tool Calling
+         |
+         v
+    External Data
+         |
+         v
+    Structured Output
+         |
+         v
+    StayAnalysis
+
+This progression establishes the foundation for future Activity, Food, Weather, and Itinerary agents while keeping each component focused and independently testable.
+
+### Research Sources
+
+- Gemini Function Calling documentation — Google AI
+- Gemini Tools documentation — Google AI
+- Gemini Structured Output documentation — Google AI
+- LangChain Agents and Tool Calling documentation — LangChain
+- LangGraph documentation — LangChain
