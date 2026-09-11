@@ -15,4 +15,7 @@ def test_travel_graph():
     result = graph.invoke(initial_state)
 
     assert result["destination"] == "Goa"
-    assert result["destination_data"]["analysis"]
+    assert result["destination_data"]["overview"]
+    assert result["destination_data"]["recommended_areas"]
+    assert result["destination_data"]["travel_considerations"]
+    assert result["destination_data"]["preference_suggestions"]

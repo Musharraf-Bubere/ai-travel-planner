@@ -635,3 +635,196 @@ The intended direction is:
     Future Travel Agents
 
 This will provide a stronger foundation for the multi-agent travel-planning workflow.
+
+## Structured Output with Pydantic
+
+The Destination Agent initially returned free-form LLM text. This was changed to structured output so that the agent produces predictable, validated data that can be safely consumed by other parts of the travel-planning system.
+
+### DestinationAnalysis Schema
+
+The project defines a Pydantic model in:
+
+`src/schemas/destination.py`
+
+The schema contains four fields:
+
+- `overview` — concise explanation of why the destination is suitable
+- `recommended_areas` — recommended areas or locations to explore
+- `travel_considerations` — important considerations for the trip
+- `preference_suggestions` — suggestions based on traveler preferences
+
+Conceptually:
+
+    DestinationAnalysis
+    ├── overview
+    ├── recommended_areas
+    ├── travel_considerations
+    └── preference_suggestions
+
+Pydantic provides runtime validation and gives the application a clearly defined data contract for the Destination Agent.
+
+### Structured LLM Helper
+
+The LLM service provides a reusable helper:
+
+`get_structured_llm(schema)`
+
+This helper creates the Gemini LLM and applies LangChain structured output support using the supplied Pydantic schema.
+
+Conceptually:
+
+    get_structured_llm(DestinationAnalysis)
+                    ↓
+             Gemini LLM
+                    ↓
+       Structured DestinationAnalysis
+
+This keeps structured-output configuration inside the LLM service instead of duplicating it inside individual agents.
+
+### Destination Agent Structured Output
+
+The Destination Agent now uses:
+
+    structured_llm = get_structured_llm(DestinationAnalysis)
+
+The travel request is passed to the structured LLM, which returns a `DestinationAnalysis` Pydantic object.
+
+The result is converted into a dictionary before being stored in the graph state:
+
+    response.model_dump()
+
+Therefore, the destination agent no longer stores an arbitrary text response under an `analysis` field.
+
+The resulting state contains structured destination information:
+
+    destination_data
+    ├── overview
+    ├── recommended_areas
+    ├── travel_considerations
+    └── preference_suggestions
+
+### TravelState Integration
+
+The `TravelState` definition was also updated so that `destination_data` is explicitly typed as:
+
+    DestinationAnalysis
+
+This creates a stronger contract between the graph state and the Destination Agent.
+
+The relationship is:
+
+    Destination Agent
+            ↓
+    DestinationAnalysis
+            ↓
+       TravelState
+            ↓
+      destination_data
+
+This is preferable to using a generic `dict` because the expected structure is explicitly defined.
+
+### Testing
+
+Structured output is covered by automated tests.
+
+The destination schema test verifies that a valid `DestinationAnalysis` object can be created and contains the expected fields.
+
+The graph test invokes the complete travel graph and verifies that the Destination Agent produces:
+
+- a destination overview
+- recommended areas
+- travel considerations
+- preference suggestions
+
+The complete test suite currently passes:
+
+    4 passed
+
+This confirms that the structured-output implementation works together with the existing TravelState, LangGraph workflow, and Gemini integration.
+
+### Why Structured Output Matters
+
+Structured output is important for the multi-agent architecture because future agents will need predictable information from previous agents.
+
+For example:
+
+    Destination Agent
+            ↓
+    DestinationAnalysis
+            ↓
+    Stay Agent
+            ↓
+    Activity Agent
+            ↓
+    Food Agent
+            ↓
+    Itinerary Agent
+
+Instead of asking downstream agents to interpret arbitrary text, each agent can work with clearly defined data structures.
+
+This improves:
+
+- reliability
+- validation
+- maintainability
+- testability
+- agent-to-agent communication
+- future API integration
+
+### Current Architecture
+
+The current implementation can be represented as:
+
+    User Travel Request
+            ↓
+       TravelState
+            ↓
+    LangGraph Orchestrator
+            ↓
+    Destination Agent
+            ↓
+       Gemini LLM
+            ↓
+    Structured Output
+            ↓
+    DestinationAnalysis
+            ↓
+       TravelState
+            ↓
+           END
+
+The system currently implements the first structured agent in the larger multi-agent travel-planning architecture.
+
+### Current Implementation Status
+
+Completed:
+
+- Gemini LLM integration
+- Environment-based API configuration
+- LangGraph StateGraph
+- TravelState
+- Destination Agent
+- Pydantic DestinationAnalysis schema
+- Structured LLM helper
+- Structured Destination Agent output
+- Type-safe destination state
+- Automated tests
+
+Not yet implemented:
+
+- Stay Agent
+- Activity Agent
+- Weather Agent
+- Food Agent
+- Itinerary Agent
+- Parallel agent execution
+- Conditional workflows
+- External travel APIs/tools
+- FastAPI
+- Streamlit
+- Persistence
+- MCP
+- LLM provider abstraction
+- Docker
+- GitHub Actions
+- Deployment

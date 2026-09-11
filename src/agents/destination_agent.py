@@ -1,5 +1,6 @@
 from src.state import TravelState
-from src.services.llm import get_llm
+from src.schemas.destination import DestinationAnalysis
+from src.services.llm import get_structured_llm
 
 
 def build_destination_prompt(state: TravelState) -> str:
@@ -23,14 +24,12 @@ Provide a concise destination overview covering:
 
 
 def destination_agent(state: TravelState) -> TravelState:
-    llm = get_llm()
+    structured_llm = get_structured_llm(DestinationAnalysis)
 
     prompt = build_destination_prompt(state)
 
-    response = llm.invoke(prompt)
+    response = structured_llm.invoke(prompt)
 
-    state["destination_data"] = {
-        "analysis": response.content
-    }
+    state["destination_data"] = response.model_dump()
 
     return state

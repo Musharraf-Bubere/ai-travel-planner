@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel
 
 
 load_dotenv()
@@ -23,3 +24,9 @@ def get_llm():
         model=GEMINI_MODEL,
         google_api_key=api_key,
     )
+
+
+def get_structured_llm(schema: type[BaseModel]):
+    llm = get_llm()
+
+    return llm.with_structured_output(schema)

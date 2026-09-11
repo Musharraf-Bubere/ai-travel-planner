@@ -1275,3 +1275,266 @@ Based on the research, the project will proceed with:
 The technologies will be introduced progressively according to the project's development workflow.
 
 The project will prioritize understanding and implementation over adding unnecessary technologies.
+
+## Structured Output
+
+### What is Structured Output?
+
+Structured output allows an LLM to return information according to a predefined schema instead of returning only free-form text.
+
+Without structured output:
+
+    Gemini
+       ↓
+    Free-form text
+       ↓
+    Application must interpret the text
+
+With structured output:
+
+    Gemini
+       ↓
+    Predefined schema
+       ↓
+    Structured data
+       ↓
+    Application can consume predictable fields
+
+For the AI Travel Planner, structured output is important because multiple agents will exchange information through the shared `TravelState`.
+
+---
+
+### Why Structured Output is Important for AI Travel Planner
+
+The current Destination Agent stores the Gemini response as:
+
+    destination_data = {
+        "analysis": response.content
+    }
+
+This works for basic experimentation, but it is not ideal for a multi-agent system.
+
+Future agents should be able to consume specific information without parsing an arbitrary paragraph.
+
+For example:
+
+    destination_data
+        ├── overview
+        ├── recommended_areas
+        ├── travel_considerations
+        └── preference_suggestions
+
+This makes communication between agents more predictable and easier to validate.
+
+---
+
+### Structured Output vs Free-Form Output
+
+| Aspect | Free-Form Output | Structured Output |
+|---|---|---|
+| Response format | Unpredictable text | Predefined structure |
+| Application parsing | More difficult | Easier |
+| Validation | Limited | Schema-based |
+| Agent-to-agent communication | Less reliable | More predictable |
+| Data extraction | Requires parsing | Direct field access |
+| Maintainability | Lower | Higher |
+
+---
+
+## Pydantic
+
+### What is Pydantic?
+
+Pydantic is a Python library used to define and validate structured data using Python type annotations.
+
+For our project, Pydantic will be used to define the expected structure of agent responses.
+
+Example conceptual model:
+
+    class DestinationAnalysis(BaseModel):
+        overview: str
+        recommended_areas: list[str]
+        travel_considerations: list[str]
+        preference_suggestions: list[str]
+
+This model defines exactly what information the Destination Agent should produce.
+
+---
+
+### Why Pydantic?
+
+Pydantic provides:
+
+- Explicit data models
+- Python type hints
+- Runtime validation
+- Predictable data structures
+- Easier integration with structured LLM output
+- Better maintainability
+
+This is especially useful when multiple agents exchange data through a shared state.
+
+---
+
+## Planned DestinationAnalysis Schema
+
+The first structured response model will be:
+
+    DestinationAnalysis
+    ├── overview: str
+    ├── recommended_areas: list[str]
+    ├── travel_considerations: list[str]
+    └── preference_suggestions: list[str]
+
+### Field Descriptions
+
+#### overview
+
+A concise explanation of why the destination is suitable for the user's trip.
+
+#### recommended_areas
+
+A list of areas or locations that are relevant to the user's trip.
+
+#### travel_considerations
+
+Important considerations related to visiting the destination.
+
+#### preference_suggestions
+
+Suggestions specifically related to the traveler's stated preferences.
+
+---
+
+## LangChain Structured Output
+
+Because the project uses LangChain, structured output will be integrated through the LangChain LLM abstraction rather than creating a separate Google-specific implementation inside the agent.
+
+Conceptually:
+
+    Destination Agent
+            ↓
+        LLM Service
+            ↓
+    ChatGoogleGenerativeAI
+            ↓
+    Structured Output
+            ↓
+    DestinationAnalysis
+            ↓
+       TravelState
+
+This maintains separation between:
+
+- Agent logic
+- LLM configuration
+- Response schema
+
+---
+
+## Gemini Structured Output
+
+Gemini supports structured output using a defined response schema.
+
+For this project, the schema will be represented using a Pydantic model and connected to the LangChain Gemini model.
+
+The intended implementation direction is:
+
+    Pydantic Model
+          ↓
+    Structured Output Configuration
+          ↓
+    Gemini 3.5 Flash-Lite
+          ↓
+    Structured Response
+          ↓
+    Pydantic Validation
+
+---
+
+## Structured Output Validation
+
+Structured output does not automatically guarantee that the generated information is factually correct.
+
+Two different concerns must be considered:
+
+### Schema Validation
+
+Does the response follow the expected structure?
+
+Example:
+
+    overview → string
+    recommended_areas → list of strings
+
+### Semantic Correctness
+
+Is the information actually useful and accurate?
+
+For example, a response can follow the correct schema but still contain an incorrect recommendation.
+
+Therefore, structured output solves the **format and validation problem**, but it does not by itself solve the **factual accuracy problem**.
+
+External tools and APIs will later be introduced to provide real travel information.
+
+---
+
+## Structured Output in the Multi-Agent Architecture
+
+The structured Destination Agent will eventually provide information that other agents can consume.
+
+    Destination Agent
+            │
+            ▼
+    DestinationAnalysis
+            │
+            ▼
+       TravelState
+            │
+      ┌─────┼─────┐
+      ▼     ▼     ▼
+    Stay  Activity Food
+    Agent   Agent  Agent
+
+This creates a predictable data flow between specialized agents.
+
+---
+
+## Implementation Decision
+
+For the first structured-output implementation:
+
+- Use Pydantic models
+- Use LangChain structured output capabilities
+- Continue using Gemini 3.5 Flash-Lite
+- Keep the existing LLM service abstraction
+- Keep the Destination Agent as the first consumer
+- Store structured destination information in `TravelState`
+
+The implementation will remain intentionally small before adding external tools or additional agents.
+
+---
+
+## Research Conclusion
+
+Structured output is an important transition point for the AI Travel Planner.
+
+The project will move from:
+
+    LLM
+      ↓
+    Free-form text
+      ↓
+    destination_data["analysis"]
+
+to:
+
+    LLM
+      ↓
+    Structured Output
+      ↓
+    Pydantic Model
+      ↓
+    destination_data
+
+This provides a stronger foundation for reliable multi-agent communication and future tool integration.
