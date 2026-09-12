@@ -1852,3 +1852,401 @@ This progression establishes the foundation for future Activity, Food, Weather, 
 - Gemini Structured Output documentation — Google AI
 - LangChain Agents and Tool Calling documentation — LangChain
 - LangGraph documentation — LangChain
+
+## Weather Agent Research
+
+### 1. Purpose
+
+The Weather Agent is responsible for retrieving and interpreting weather information relevant to a travel plan.
+
+Weather is different from destination, accommodation, and activity research because it is **time-sensitive external information**.
+
+The Weather Agent should therefore not rely on the LLM's internal knowledge to provide current or forecast weather information.
+
+The architecture should be:
+
+    Weather API
+        ↓
+    Weather Tool
+        ↓
+    Weather Agent / LLM
+        ↓
+    Structured Weather Analysis
+        ↓
+    TravelState
+
+The Weather API provides factual weather data, while the LLM interprets that information in the context of the traveler's trip.
+
+---
+
+### 2. Why a Separate Weather Agent?
+
+Weather affects several travel-planning decisions:
+
+- Whether outdoor activities are suitable
+- Whether beach activities should be recommended
+- Whether alternative indoor activities are needed
+- Whether rain may affect the itinerary
+- Whether particular travel days require flexibility
+- Whether weather conditions are generally suitable for the planned trip
+
+A dedicated Weather Agent keeps this responsibility separate from other agents.
+
+This follows the multi-agent design principle used throughout the project:
+
+    One agent = one specialized responsibility
+
+The Weather Agent focuses specifically on weather analysis and travel-related weather recommendations.
+
+---
+
+### 3. Weather Data Source
+
+Several weather APIs were considered:
+
+- WeatherAPI.com
+- Open-Meteo
+- OpenWeatherMap
+
+For the initial implementation, **WeatherAPI.com** is selected.
+
+Reasons:
+
+- Simple REST API
+- Supports city-name input
+- Provides current weather information
+- Provides forecast information
+- Provides daily and hourly forecast data
+- Supports forecasts for multiple days
+- Returns structured JSON data
+- Easy to integrate with a Python tool
+
+The API can therefore act as the factual data source for the Weather Tool.
+
+---
+
+### 4. Weather Tool
+
+The Weather Agent should use a dedicated LangChain tool to retrieve weather information.
+
+Conceptually:
+
+    search_weather(
+        destination,
+        travel_dates,
+        duration
+    )
+
+The tool will:
+
+1. Receive the destination and travel requirements.
+2. Call the weather API.
+3. Extract relevant weather information.
+4. Return useful weather data to the Weather Agent.
+
+The tool should avoid returning unnecessary API fields.
+
+Relevant information may include:
+
+- Date
+- Temperature
+- Feels-like temperature
+- Weather condition
+- Rain probability
+- Precipitation
+- Wind
+
+The Weather Tool is responsible for **retrieving factual information**, not making the final travel recommendation.
+
+---
+
+### 5. API Data vs LLM Interpretation
+
+An important architectural principle is:
+
+    API = factual information
+    LLM = interpretation
+
+The application should not ask the LLM to directly predict weather.
+
+Incorrect approach:
+
+    User
+      ↓
+    Gemini
+      ↓
+    "What will the weather be in Goa?"
+
+This could result in outdated or hallucinated information.
+
+Instead:
+
+    User
+      ↓
+    Weather Agent
+      ↓
+    Weather Tool
+      ↓
+    Weather API
+      ↓
+    Actual Weather Data
+      ↓
+    Gemini
+      ↓
+    Travel-oriented interpretation
+
+For example:
+
+    Weather API
+
+    Day 1 → 29°C, Sunny, 10% rain
+    Day 2 → 28°C, Cloudy, 35% rain
+    Day 3 → 26°C, Heavy Rain, 80% rain
+
+The LLM can then interpret the information:
+
+    Day 1 → Good for outdoor activities
+    Day 2 → Suitable with some flexibility
+    Day 3 → Prefer indoor activities
+
+This separation improves reliability because the LLM does not generate the underlying weather facts.
+
+---
+
+### 6. Weather Analysis
+
+The Weather Agent should transform raw weather information into a structured travel-oriented analysis.
+
+A possible structure is:
+
+    WeatherAnalysis
+
+        forecast_summary
+        temperature_summary
+        precipitation_summary
+        travel_assessment
+        weather_recommendation
+
+#### Forecast Summary
+
+Provides a concise overview of the expected weather during the trip.
+
+#### Temperature Summary
+
+Summarizes temperature conditions relevant to the traveler.
+
+#### Precipitation Summary
+
+Highlights rain probability and precipitation conditions.
+
+#### Travel Assessment
+
+Explains how the weather may affect travel and planned activities.
+
+#### Weather Recommendation
+
+Provides practical recommendations such as:
+
+- Suitable days for outdoor activities
+- Days requiring flexibility
+- Possible indoor alternatives
+- General weather-related travel advice
+
+---
+
+### 7. Structured Output
+
+The Weather Agent should use Pydantic structured output, consistent with the other agents.
+
+Conceptually:
+
+    Weather API
+        ↓
+    Weather Tool
+        ↓
+    Weather Data
+        ↓
+    Gemini
+        ↓
+    WeatherAnalysis
+        ↓
+    TravelState
+
+Structured output provides a predictable format for the rest of the LangGraph workflow.
+
+This is important because the Itinerary Agent will eventually consume information from multiple agents, including weather information.
+
+---
+
+### 8. Weather Information in Shared State
+
+The existing TravelState already contains a weather field:
+
+    weather: dict
+
+The Weather Agent will populate this field after processing the weather information.
+
+Conceptually:
+
+    TravelState
+
+        destination
+        travel_dates
+        duration
+        travelers
+        budget
+        preferences
+
+        destination_data
+        stay_options
+        activities
+        weather
+        restaurants
+        itinerary
+
+This allows later agents, especially the Itinerary Agent, to use weather information when constructing the final itinerary.
+
+---
+
+### 9. Forecast Limitations
+
+Weather forecasts are time-dependent and become less certain further into the future.
+
+Therefore, the system should not present long-range forecasts as guaranteed facts.
+
+The Weather Agent should work with whatever forecast information is available from the selected weather API.
+
+The application should also distinguish between:
+
+- Available forecast information
+- Travel interpretation based on that information
+
+Forecast uncertainty can be improved later, but it is not necessary to over-engineer the first implementation.
+
+---
+
+### 10. LangGraph Integration
+
+The Weather Agent will be added as another node in the existing LangGraph workflow.
+
+Current workflow:
+
+    START
+      ↓
+    Destination Agent
+      ↓
+    Stay Agent
+      ↓
+    Activity Agent
+      ↓
+    END
+
+After adding the Weather Agent:
+
+    START
+      ↓
+    Destination Agent
+      ↓
+    Stay Agent
+      ↓
+    Activity Agent
+      ↓
+    Weather Agent
+      ↓
+    END
+
+The Weather Agent receives the shared TravelState, retrieves weather information, generates structured analysis, stores the result in the state, and passes the updated state to the next node.
+
+---
+
+### 11. Weather Agent Workflow
+
+The complete Weather Agent workflow is:
+
+    TravelState
+        ↓
+    Weather Agent
+        ↓
+    Weather Tool
+        ↓
+    Weather API
+        ↓
+    Weather Data
+        ↓
+    Structured LLM
+        ↓
+    WeatherAnalysis
+        ↓
+    TravelState["weather"]
+
+This follows the same architecture already established for the Stay and Activity Agents:
+
+    Agent
+      ↓
+    Tool
+      ↓
+    External Data
+      ↓
+    LLM Interpretation
+      ↓
+    Structured Output
+      ↓
+    Shared State
+
+---
+
+### 12. Initial Implementation Decision
+
+For the first implementation:
+
+- WeatherAPI.com will be used as the weather data source.
+- A LangChain `search_weather` tool will retrieve weather data.
+- The Weather Agent will interpret the retrieved information.
+- Pydantic will define the structured WeatherAnalysis output.
+- Weather information will be stored in TravelState.
+- The Weather Agent will be integrated into the existing sequential LangGraph workflow.
+
+The implementation will initially remain simple.
+
+Future improvements may include:
+
+- More weather APIs
+- Better location resolution
+- Weather alerts
+- More detailed hourly analysis
+- Weather-based itinerary adjustments
+- MCP-based weather tools
+- More advanced conditional workflows
+
+These features will be considered later as the project evolves.
+
+---
+
+### 13. Research Conclusion
+
+The Weather Agent introduces an important capability to the AI Travel Planner: **using external, time-sensitive information and allowing the LLM to interpret that information instead of generating factual data itself.**
+
+The selected architecture is:
+
+    Weather API
+        ↓
+    Weather Tool
+        ↓
+    Weather Agent
+        ↓
+    Structured WeatherAnalysis
+        ↓
+    TravelState
+        ↓
+    Itinerary Agent
+
+This design keeps responsibilities separated, improves reliability, and prepares the system for future itinerary optimization based on real-world weather conditions.
+
+### Sources
+
+- WeatherAPI.com Documentation
+- Open-Meteo Documentation
+- OpenWeatherMap API Documentation
+- LangChain Tools Documentation
+- LangChain Structured Output Documentation
+- LangGraph Documentation

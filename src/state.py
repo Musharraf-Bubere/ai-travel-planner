@@ -2,6 +2,8 @@ from typing import TypedDict
 
 from src.schemas.destination import DestinationAnalysis
 from src.schemas.stay import StayAnalysis
+from src.schemas.activity import ActivityAnalysis
+from src.schemas.weather import WeatherAnalysis
 
 
 class TravelState(TypedDict, total=False):
@@ -16,7 +18,7 @@ class TravelState(TypedDict, total=False):
     # Agent outputs
     destination_data: DestinationAnalysis
     stay_options: StayAnalysis
-    activities: list[dict]
-    weather: dict
+    activities: ActivityAnalysis
+    weather: WeatherAnalysis
     restaurants: list[dict]
     itinerary: dict

@@ -2484,3 +2484,410 @@ The future Itinerary Agent will be able to consume:
     Day-by-Day Travel Itinerary
 
 This makes the Activity Agent an important intermediate component in the overall multi-agent travel planning system.
+
+## Weather Agent Implementation
+
+### 1. Purpose
+
+The Weather Agent retrieves real weather forecast data for the travel destination and uses the LLM to interpret that data into practical travel recommendations.
+
+The Weather Agent follows the same architecture used by the Stay Agent and Activity Agent:
+
+    TravelState
+        ↓
+    Weather Agent
+        ↓
+    Gemini Tool Calling
+        ↓
+    Weather Tool
+        ↓
+    WeatherAPI.com
+        ↓
+    Raw Forecast Data
+        ↓
+    Gemini Structured Output
+        ↓
+    WeatherAnalysis
+        ↓
+    TravelState["weather"]
+
+The agent is responsible for weather-related analysis only. It does not generate the complete travel itinerary.
+
+---
+
+### 2. Weather API Integration
+
+For real weather data, the project uses WeatherAPI.com.
+
+The WeatherAPI forecast endpoint is used to retrieve forecast information for the requested destination.
+
+The Weather Tool sends:
+
+    destination
+    duration
+
+to the API.
+
+The API returns information such as:
+
+    Date
+    Average temperature
+    Maximum temperature
+    Minimum temperature
+    Weather condition
+    Rain probability
+    Total precipitation
+    Maximum wind speed
+
+Only the information required by the travel planning system is extracted from the API response.
+
+---
+
+### 3. Environment Configuration
+
+The WeatherAPI key is stored in the `.env` file.
+
+    GOOGLE_API_KEY=...
+    WEATHER_API_KEY=...
+
+The API key is loaded using `python-dotenv`.
+
+The `.env` file is excluded from Git using `.gitignore` so that API credentials are not committed to the repository.
+
+---
+
+### 4. Weather Tool
+
+File:
+
+    src/tools/weather.py
+
+The Weather Tool is implemented using the LangChain `@tool` decorator.
+
+Its responsibility is to communicate with WeatherAPI.com and return normalized forecast data to the Weather Agent.
+
+Tool interface:
+
+    search_weather(
+        destination: str,
+        duration: int
+    )
+
+The tool:
+
+1. Loads the WeatherAPI key.
+2. Validates that the key exists.
+3. Calls the WeatherAPI forecast endpoint.
+4. Sends the destination and forecast duration.
+5. Validates the HTTP response.
+6. Parses the JSON response.
+7. Extracts the required forecast information.
+8. Returns a list of daily forecast dictionaries.
+
+Example normalized result:
+
+    [
+        {
+            "date": "...",
+            "temperature_c": 27.0,
+            "max_temperature_c": 28.0,
+            "min_temperature_c": 25.0,
+            "condition": "...",
+            "rain_probability": 70,
+            "precipitation_mm": 2.5,
+            "max_wind_kph": 18.0
+        }
+    ]
+
+The Weather Tool is responsible for data retrieval, while the LLM is responsible for interpretation.
+
+---
+
+### 5. Weather Analysis Schema
+
+File:
+
+    src/schemas/weather.py
+
+A Pydantic model is used to define the expected structured output from the Weather Agent.
+
+    WeatherAnalysis
+
+Fields:
+
+    forecast_summary
+    temperature_summary
+    precipitation_summary
+    travel_assessment
+    weather_recommendation
+
+The schema ensures that the LLM produces a predictable structure instead of an uncontrolled text response.
+
+---
+
+### 6. Weather Agent
+
+File:
+
+    src/agents/weather_agent.py
+
+The Weather Agent combines:
+
+    Gemini
+    LangChain Tool Calling
+    Weather Tool
+    Pydantic Structured Output
+    TravelState
+
+The agent first creates a travel-specific weather analysis prompt using information from `TravelState`.
+
+The prompt includes:
+
+    Destination
+    Duration
+    Travelers
+    Budget
+    Preferences
+
+The LLM is then provided with the `search_weather` tool.
+
+---
+
+### 7. Tool Calling Flow
+
+The Weather Agent follows the standard tool-calling sequence.
+
+    HumanMessage
+        ↓
+    Gemini
+        ↓
+    Tool Call
+        ↓
+    search_weather()
+        ↓
+    WeatherAPI.com
+        ↓
+    Tool Result
+        ↓
+    Gemini
+        ↓
+    Structured WeatherAnalysis
+
+The first Gemini call determines that weather information is required and generates a tool call.
+
+The application executes the tool call.
+
+The tool result is then sent back to Gemini using a `ToolMessage`.
+
+The conversation therefore contains:
+
+    HumanMessage
+    AIMessage
+    ToolMessage
+
+This allows Gemini to interpret the actual weather data returned by the external API.
+
+---
+
+### 8. Structured Weather Output
+
+After receiving the WeatherAPI result, the agent creates a structured LLM using:
+
+    get_structured_llm(WeatherAnalysis)
+
+The conversation containing the original request, tool call, and tool result is then passed to the structured LLM.
+
+The final response is converted into a dictionary using:
+
+    final_response.model_dump()
+
+The result is stored in the shared state:
+
+    state["weather"] = final_response.model_dump()
+
+This allows downstream agents to access the weather analysis.
+
+---
+
+### 9. Weather Agent and Shared State
+
+The Weather Agent reads information from:
+
+    TravelState
+
+and writes its result to:
+
+    TravelState["weather"]
+
+Conceptually:
+
+    TravelState
+        │
+        ├── destination
+        ├── duration
+        ├── travelers
+        ├── budget
+        └── preferences
+                ↓
+          Weather Agent
+                ↓
+          Weather Analysis
+                ↓
+        state["weather"]
+
+This follows the shared-state architecture used throughout the project.
+
+---
+
+### 10. LLM vs Weather API Responsibilities
+
+The system separates factual weather retrieval from AI interpretation.
+
+#### WeatherAPI.com
+
+Responsible for:
+
+    Weather forecast
+    Temperature
+    Rain probability
+    Precipitation
+    Weather conditions
+    Wind information
+
+#### Gemini
+
+Responsible for:
+
+    Understanding the travel context
+    Interpreting weather conditions
+    Assessing travel suitability
+    Identifying potential activity impacts
+    Generating practical recommendations
+
+This separation prevents the LLM from being treated as the source of real-time weather data.
+
+---
+
+### 11. Example Weather Analysis
+
+For a three-day trip to Goa, the Weather Agent may produce:
+
+    Forecast Summary:
+    Expect warm tropical weather with a mixture of cloudy conditions
+    and passing showers.
+
+    Temperature Summary:
+    Temperatures remain around 25–28°C.
+
+    Precipitation Summary:
+    Rain probability is higher during the first two days and lower
+    on the third day.
+
+    Travel Assessment:
+    Travel is moderately suitable, although some outdoor activities
+    may be affected by rain.
+
+    Weather Recommendation:
+    Carry waterproof clothing and schedule weather-sensitive outdoor
+    activities during the drier periods.
+
+The exact output is generated dynamically from the real forecast returned by WeatherAPI.com.
+
+---
+
+### 12. Weather Agent Testing
+
+Test file:
+
+    tests/test_weather_agent.py
+
+The test provides a sample travel state:
+
+    destination = "Goa"
+    duration = 3
+    travelers = 2
+    budget = 15000
+    preferences = ["beach", "adventure"]
+
+The test executes:
+
+    weather_agent(state)
+
+It then verifies that the Weather Agent produces:
+
+    weather
+    forecast_summary
+    temperature_summary
+    precipitation_summary
+    travel_assessment
+    weather_recommendation
+
+The Weather Agent test successfully completed with:
+
+    1 passed
+
+The test also confirmed the complete integration between:
+
+    Gemini
+        ↓
+    Weather Tool
+        ↓
+    WeatherAPI.com
+        ↓
+    Structured WeatherAnalysis
+        ↓
+    TravelState
+
+---
+
+### 13. Current Weather Agent Status
+
+The Weather Agent is now independently implemented and tested.
+
+Current status:
+
+    Weather API integration        → Complete
+    Weather Tool                   → Complete
+    Weather schema                 → Complete
+    Gemini tool calling            → Complete
+    Structured output              → Complete
+    Shared state integration       → Complete
+    Weather Agent test             → Passed
+
+The Weather Agent is currently tested independently.
+
+It has not yet been added to the main LangGraph workflow.
+
+---
+
+### 14. Next Implementation Step
+
+The next step is to integrate the Weather Agent into the existing LangGraph workflow.
+
+Current workflow:
+
+    START
+      ↓
+    Destination Agent
+      ↓
+    Stay Agent
+      ↓
+    Activity Agent
+      ↓
+    END
+
+After Weather Agent integration:
+
+    START
+      ↓
+    Destination Agent
+      ↓
+    Stay Agent
+      ↓
+    Activity Agent
+      ↓
+    Weather Agent
+      ↓
+    END
+
+This will allow the complete graph to carry destination, accommodation, activity, and weather information through the shared `TravelState`.
