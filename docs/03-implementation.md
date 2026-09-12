@@ -2891,3 +2891,449 @@ After Weather Agent integration:
     END
 
 This will allow the complete graph to carry destination, accommodation, activity, and weather information through the shared `TravelState`.
+
+## 8. Food / Restaurant Agent Implementation
+
+### 8.1 Purpose
+
+The Food Agent is responsible for researching restaurant options for the traveler's destination.
+
+Its responsibilities are:
+
+1. Search real restaurant data
+2. Evaluate restaurants based on traveler requirements
+3. Consider budget and preferences
+4. Analyze restaurant ratings and categories
+5. Produce structured restaurant recommendations
+6. Store the result in the shared `TravelState`
+
+The Food Agent follows the same architecture used by the Stay, Activity, and Weather Agents:
+
+    TravelState
+        ↓
+    Food Agent
+        ↓
+    Gemini LLM
+        ↓
+    Restaurant Search Tool
+        ↓
+    SerpApi
+        ↓
+    Google Maps restaurant data
+        ↓
+    ToolMessage
+        ↓
+    Gemini LLM
+        ↓
+    FoodAnalysis
+        ↓
+    TravelState
+
+---
+
+### 8.2 Restaurant API Selection
+
+Foursquare Places API was initially considered for restaurant discovery.
+
+During implementation, the Foursquare API returned HTTP 429 because the developer account had no API credits remaining.
+
+Instead of introducing a paid dependency, SerpApi Google Maps was selected.
+
+SerpApi provides structured local search results containing useful restaurant information such as:
+
+- Restaurant name
+- Address
+- Category/type
+- Rating
+- Distance
+- Description
+
+This information is suitable for the Food Agent's recommendation workflow.
+
+The project uses the SerpApi Google Maps engine:
+
+    engine = google_maps
+
+---
+
+### 8.3 Environment Configuration
+
+The SerpApi API key is stored in the `.env` file.
+
+    SERPAPI_API_KEY=...
+
+The API key is loaded through environment variables rather than being hardcoded in the source code.
+
+The `.env` file is excluded from Git using `.gitignore`.
+
+This prevents the secret API key from being committed to the repository.
+
+---
+
+### 8.4 Restaurant Search Tool
+
+The restaurant search functionality is implemented in:
+
+    src/tools/food.py
+
+The tool is exposed through LangChain's `@tool` decorator:
+
+    @tool
+    def search_restaurants(...)
+
+The tool accepts:
+
+- `destination`
+- `price_level`
+- `limit`
+
+The tool then sends a request to the SerpApi search endpoint.
+
+The basic request flow is:
+
+    search_restaurants()
+            ↓
+    SERPAPI_API_KEY
+            ↓
+    SerpApi Search API
+            ↓
+    Google Maps
+            ↓
+    Local restaurant results
+
+The tool normalizes the external API response into a consistent Python structure.
+
+Example normalized result:
+
+    {
+        "name": "The Bombay Canteen",
+        "location": "Lower Parel, Mumbai",
+        "category": "Modern Indian restaurant",
+        "price_level": 2,
+        "rating": 4.5,
+        "distance": "5 km",
+        "description": "Fashionable cafe and bar offering innovative Indian cuisine."
+    }
+
+---
+
+### 8.5 Restaurant Data Normalization
+
+External APIs may return data using different field names and structures.
+
+The Food Tool converts the external SerpApi response into the application's internal restaurant representation.
+
+The mapping includes:
+
+    SerpApi field          Application field
+    ------------------------------------------
+    title                  name
+    address                location
+    type                   category
+    rating                 rating
+    distance               distance
+    description            description
+
+The `price_level` field is currently passed through the tool input.
+
+Distance is represented as a string because Google Maps results can return human-readable values such as:
+
+    "5 km"
+    "850 m"
+
+If distance information is unavailable, the tool uses:
+
+    "Not available"
+
+This prevents an unavailable distance from incorrectly being represented as `0.0`.
+
+---
+
+### 8.6 Food Schema
+
+The Food Agent uses Pydantic structured output.
+
+The schema is implemented in:
+
+    src/schemas/food.py
+
+The main models are:
+
+    Restaurant
+        ↓
+    FoodAnalysis
+
+The `Restaurant` model contains:
+
+- `name`
+- `location`
+- `category`
+- `price_level`
+- `rating`
+- `distance`
+- `description`
+
+The `FoodAnalysis` model contains:
+
+- `recommended_restaurants`
+- `restaurants_by_category`
+- `budget_assessment`
+- `food_recommendation`
+
+This ensures that the Food Agent produces predictable structured data rather than an unstructured text response.
+
+---
+
+### 8.7 Food Agent
+
+The Food Agent is implemented in:
+
+    src/agents/food_agent.py
+
+The Food Agent follows the project's established tool-calling pattern.
+
+The workflow is:
+
+    TravelState
+        ↓
+    Build food research prompt
+        ↓
+    Gemini with search_restaurants tool
+        ↓
+    AIMessage containing tool call
+        ↓
+    Execute search_restaurants
+        ↓
+    ToolMessage
+        ↓
+    Structured Gemini output
+        ↓
+    FoodAnalysis
+        ↓
+    state["restaurants"]
+
+The LLM is responsible for deciding when restaurant search is required and for interpreting the returned restaurant information.
+
+The Python tool is responsible for making the actual external API request.
+
+This separation keeps external API access inside tools instead of coupling API logic directly to the LLM.
+
+---
+
+### 8.8 Food Agent Prompt
+
+The Food Agent prompt provides the travel context:
+
+    Destination
+    Duration
+    Travelers
+    Budget
+    Preferences
+
+The LLM is instructed to evaluate restaurants based on:
+
+1. Traveler preferences
+2. Budget
+3. Restaurant rating
+4. Cuisine/category
+5. Location
+6. Overall suitability
+
+The goal is not simply to return the highest-rated restaurants.
+
+The agent should select restaurants that are practical and suitable for the specific travel request.
+
+---
+
+### 8.9 Structured Output
+
+The Food Agent uses:
+
+    get_structured_llm(FoodAnalysis)
+
+This ensures the final response follows the `FoodAnalysis` Pydantic schema.
+
+The structured result is then stored in the shared state:
+
+    state["restaurants"] = final_response.model_dump()
+
+This allows downstream graph nodes to consume restaurant recommendations without depending on free-form LLM text.
+
+---
+
+### 8.10 Shared State Integration
+
+The shared `TravelState` contains:
+
+    restaurants: list[dict]
+
+The Food Agent writes its final restaurant analysis into:
+
+    TravelState["restaurants"]
+
+The state therefore becomes the communication mechanism between agents.
+
+The Food Agent does not need to directly communicate with the Stay, Activity, or Weather Agent.
+
+Instead:
+
+    Agent
+      ↓
+    Shared State
+      ↓
+    Next Agent
+
+This maintains loose coupling between agents.
+
+---
+
+### 8.11 LangGraph Integration
+
+The Food Agent was added as a node in:
+
+    src/graph/travel_graph.py
+
+The current graph flow is:
+
+    START
+      ↓
+    Destination
+      ↓
+    Stay
+      ↓
+    Activity
+      ↓
+    Weather
+      ↓
+    Food
+      ↓
+    END
+
+The Food Agent is therefore the latest research agent in the current sequential travel-planning workflow.
+
+---
+
+### 8.12 Food Agent Testing
+
+The Food Agent was tested at multiple levels.
+
+#### Schema Test
+
+File:
+
+    tests/test_food_schema.py
+
+The test verifies that:
+
+- `Restaurant` can be created
+- `FoodAnalysis` can be created
+- Restaurant information is stored correctly
+- Category grouping works correctly
+
+#### Tool Test
+
+File:
+
+    tests/test_food_tool.py
+
+The test verifies that:
+
+- `search_restaurants` is correctly registered as a LangChain tool
+- The tool has the expected name and description
+
+#### Food Agent Test
+
+File:
+
+    tests/test_food_agent.py
+
+The integration test verifies that:
+
+- The Food Agent executes successfully
+- Gemini can call the restaurant search tool
+- SerpApi returns restaurant data
+- The final structured restaurant analysis is stored in state
+
+#### Graph Test
+
+File:
+
+    tests/test_graph.py
+
+The graph test verifies that the Food Agent is registered as a LangGraph node.
+
+---
+
+### 8.13 Real API Test
+
+A real SerpApi request was successfully executed using:
+
+    destination = "Mumbai"
+    price_level = 2
+    limit = 5
+
+The API returned real restaurant results.
+
+Example results included:
+
+    The Bombay Canteen
+    Saffron
+    By The Mekong
+
+The response included restaurant names, locations, categories, ratings, distances, and descriptions.
+
+The complete Food Agent was also executed through the LangGraph workflow successfully.
+
+---
+
+### 8.14 Test Results
+
+After integrating the Food Agent, the complete test suite produced:
+
+    12 passed
+    0 failed
+    1 warning
+
+The warning originates from the external `google.genai` dependency:
+
+    DeprecationWarning:
+    '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+
+This warning is currently outside the project's application code and is therefore deferred for a later dependency/refactoring review.
+
+---
+
+### 8.15 Current Status
+
+The Food Agent implementation is complete.
+
+Completed components:
+
+- Food research
+- Food schema
+- Restaurant search tool
+- SerpApi integration
+- Restaurant data normalization
+- Gemini tool calling
+- Structured FoodAnalysis
+- Shared state integration
+- LangGraph integration
+- Unit testing
+- Integration testing
+- Real API testing
+
+Current workflow:
+
+    Destination Agent
+            ↓
+    Stay Agent
+            ↓
+    Activity Agent
+            ↓
+    Weather Agent
+            ↓
+    Food Agent
+            ↓
+    END
+
+The next major feature will extend the travel planning workflow beyond individual research agents toward itinerary generation and final travel-plan composition.

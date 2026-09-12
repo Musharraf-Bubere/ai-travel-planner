@@ -10,3 +10,4 @@ def test_travel_graph():
     assert "stay" in nodes
     assert "activity" in nodes
     assert "weather" in nodes
+    assert "food" in nodes

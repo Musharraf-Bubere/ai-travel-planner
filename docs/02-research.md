@@ -2250,3 +2250,737 @@ This design keeps responsibilities separated, improves reliability, and prepares
 - LangChain Tools Documentation
 - LangChain Structured Output Documentation
 - LangGraph Documentation
+
+## Food / Restaurant Agent Research
+
+### 1. Purpose
+
+The Food / Restaurant Agent is responsible for finding suitable restaurants and food experiences for the travel destination.
+
+The agent should consider:
+
+    Destination
+    Budget
+    Traveler preferences
+    Food interests
+    Location
+    Restaurant category
+    Ratings
+    Price range
+
+The Food Agent should not generate restaurant information purely from the LLM's internal knowledge.
+
+Instead, it should retrieve real place data from an external Places API and then use the LLM to analyze and personalize those results.
+
+The overall architecture is:
+
+    TravelState
+        ↓
+    Food Agent
+        ↓
+    Gemini Tool Calling
+        ↓
+    Restaurant Search Tool
+        ↓
+    Foursquare Places API
+        ↓
+    Restaurant Data
+        ↓
+    Gemini Structured Output
+        ↓
+    FoodAnalysis
+        ↓
+    TravelState["restaurants"]
+
+---
+
+### 2. Why a Separate Food Agent?
+
+Food recommendations are an important part of travel planning.
+
+However, restaurant discovery has different requirements from:
+
+    Destination research
+    Accommodation search
+    Activity research
+    Weather analysis
+
+A dedicated Food Agent allows the system to:
+
+    Search restaurants using real location data
+    Filter restaurants by price range
+    Consider restaurant categories
+    Consider traveler preferences
+    Rank suitable options
+    Generate practical food recommendations
+
+Separating this responsibility also keeps the multi-agent architecture modular.
+
+---
+
+### 3. Selected External API
+
+The project will use the current Foursquare Places API.
+
+Foursquare provides global point-of-interest data and supports place search, discovery, ranking, and location-based queries.
+
+The current Places API provides a dedicated Place Search endpoint:
+
+    https://places-api.foursquare.com/places/search
+
+The API supports searching for places using:
+
+    Query
+    Locality
+    Latitude/longitude
+    Radius
+    Category
+    Price range
+    Rating
+    Distance
+    Popularity
+
+This makes it suitable for restaurant discovery in a travel planning application.
+
+---
+
+### 4. Why Foursquare Places API?
+
+Foursquare is suitable for this project because its Place Search endpoint supports location-aware place discovery.
+
+The API can search using a locality such as a city or destination and can also use latitude/longitude with a radius.
+
+It supports restaurant-related filtering and ranking through query, category, price, and sorting parameters.
+
+Available sorting options include:
+
+    RELEVANCE
+    RATING
+    DISTANCE
+    POPULARITY
+
+The API also allows limiting the number of returned results.
+
+This gives the Food Agent enough real-world information to retrieve candidate restaurants before the LLM performs the final reasoning.
+
+---
+
+### 5. Current Places API Endpoint
+
+The Food Agent will initially use:
+
+    GET https://places-api.foursquare.com/places/search
+
+The current API version is:
+
+    2025-06-17
+
+The request must include:
+
+    X-Places-Api-Version: 2025-06-17
+
+Authentication is performed using a Foursquare Service Key through:
+
+    Authorization: Bearer <SERVICE_API_KEY>
+
+The API documentation identifies Service Keys as the authentication mechanism for Places API requests.
+
+---
+
+### 6. Authentication
+
+The Foursquare Service API key will be stored in the project's `.env` file.
+
+Example:
+
+    FOURSQUARE_API_KEY=...
+
+The key must never be hardcoded into the source code.
+
+The `.env` file will remain excluded from Git through `.gitignore`.
+
+The application will load the key using `python-dotenv`.
+
+The expected architecture is:
+
+    .env
+      ↓
+    python-dotenv
+      ↓
+    Restaurant Search Tool
+      ↓
+    Authorization: Bearer <API_KEY>
+      ↓
+    Foursquare Places API
+
+---
+
+### 7. Restaurant Search Tool
+
+A dedicated LangChain tool will be created for restaurant discovery.
+
+Planned file:
+
+    src/tools/restaurant.py
+
+Planned tool:
+
+    search_restaurants()
+
+The tool will receive information required to search for restaurants.
+
+Initial conceptual interface:
+
+    search_restaurants(
+        destination: str,
+        preferences: list[str],
+        max_price: int
+    )
+
+The exact interface may be refined during implementation.
+
+The tool will:
+
+1. Load the Foursquare API key.
+2. Validate that the API key exists.
+3. Build the Places API request.
+4. Search for restaurants near the destination.
+5. Apply appropriate filters.
+6. Request only the fields required by the application.
+7. Validate the HTTP response.
+8. Parse the API response.
+9. Normalize restaurant information.
+10. Return restaurant candidates to the Food Agent.
+
+---
+
+### 8. Location Search
+
+The Places API supports multiple ways of specifying the search area.
+
+The Food Agent can use:
+
+    near
+
+for a geocodable locality.
+
+Alternatively, the application can use:
+
+    ll + radius
+
+where:
+
+    ll = latitude,longitude
+    radius = search radius in meters
+
+For the initial implementation, the Food Agent will prefer destination-based locality search because our current TravelState contains a destination string but does not yet contain latitude/longitude coordinates.
+
+Example conceptual request:
+
+    destination = "Goa"
+
+The tool can translate this into a locality-based Places API search.
+
+Later, the project can introduce a dedicated location/geocoding capability if more precise geographic searching becomes necessary.
+
+---
+
+### 9. Restaurant Search Query
+
+The Food Agent should not blindly search for the word "restaurant" in every situation.
+
+The search query can incorporate traveler preferences.
+
+Examples:
+
+    vegetarian restaurants
+    seafood restaurants
+    budget restaurants
+    family restaurants
+    romantic restaurants
+    local cuisine
+    cafes
+    street food
+
+The LLM can determine the appropriate search intent based on the user's preferences and pass that intent to the Restaurant Search Tool.
+
+This creates the following flow:
+
+    User Preferences
+          ↓
+    Food Agent
+          ↓
+    Search Intent
+          ↓
+    Restaurant Tool
+          ↓
+    Foursquare
+
+---
+
+### 10. Price Filtering
+
+Foursquare Place Search supports price filtering.
+
+The API defines four price levels:
+
+    1 → Most affordable
+    2 → Moderate
+    3 → Expensive
+    4 → Most expensive
+
+The API supports:
+
+    min_price
+    max_price
+
+The Food Agent can use these values to narrow restaurant candidates according to the traveler's budget.
+
+However, the application should not assume that the Foursquare price level directly represents an exact monetary meal cost.
+
+The price level should therefore be treated as a relative affordability signal rather than an exact rupee amount.
+
+---
+
+### 11. Restaurant Ranking
+
+The Places API supports several sorting strategies:
+
+    RELEVANCE
+    RATING
+    DISTANCE
+    POPULARITY
+
+The Food Agent can use these results as candidate rankings.
+
+The final recommendation should still be performed by the LLM because the best restaurant for a traveler is not necessarily the highest-rated restaurant.
+
+For example:
+
+    Traveler preference → vegetarian
+    Budget → moderate
+    Destination → Goa
+
+The Food Agent should consider all these constraints instead of simply selecting the first API result.
+
+---
+
+### 12. Data Retrieved from the API
+
+The Restaurant Search Tool should normalize only the information required by the application.
+
+Potential restaurant fields include:
+
+    Name
+    Address
+    Locality
+    Categories
+    Price level
+    Rating
+    Distance
+    Latitude
+    Longitude
+    Foursquare place ID
+
+The exact fields requested from the API will be finalized during implementation based on the current Places API response schema.
+
+The tool should avoid unnecessarily passing large raw API responses to the LLM.
+
+---
+
+### 13. API Data vs LLM Responsibilities
+
+The system should clearly separate factual restaurant retrieval from AI reasoning.
+
+#### Foursquare Places API
+
+Responsible for:
+
+    Restaurant discovery
+    Location information
+    Categories
+    Price level
+    Ratings
+    Distance
+    Place identifiers
+
+#### Gemini
+
+Responsible for:
+
+    Understanding traveler preferences
+    Comparing restaurant candidates
+    Interpreting price levels
+    Selecting suitable restaurants
+    Explaining why restaurants are recommended
+    Producing personalized food recommendations
+
+This follows the same architecture used by the Weather Agent.
+
+The external API provides real-world data.
+
+The LLM provides reasoning and personalization.
+
+---
+
+### 14. Food Analysis Schema
+
+A dedicated Pydantic schema will be created.
+
+Planned file:
+
+    src/schemas/food.py
+
+Planned schema:
+
+    FoodAnalysis
+
+The schema should provide predictable structured output.
+
+Initial conceptual fields:
+
+    recommended_restaurants
+    restaurants_by_category
+    budget_assessment
+    food_recommendation
+
+Each recommended restaurant should contain structured information such as:
+
+    name
+    location
+    category
+    price_level
+    rating
+    description
+
+The exact schema will be finalized during the implementation stage.
+
+---
+
+### 15. Shared State Integration
+
+The Food Agent will read from:
+
+    TravelState
+
+Relevant inputs include:
+
+    destination
+    budget
+    travelers
+    preferences
+    duration
+
+The Food Agent will write its result to:
+
+    state["restaurants"]
+
+The current state contains:
+
+    restaurants: list[dict]
+
+This type will be updated to a dedicated `FoodAnalysis` type after the Pydantic schema is implemented.
+
+The expected architecture will become:
+
+    destination_data → DestinationAnalysis
+    stay_options     → StayAnalysis
+    activities       → ActivityAnalysis
+    weather          → WeatherAnalysis
+    restaurants      → FoodAnalysis
+
+This keeps the shared state strongly typed and consistent.
+
+---
+
+### 16. Food Agent Tool Calling
+
+The Food Agent will follow the same tool-calling architecture used by the Stay, Activity, and Weather Agents.
+
+Conceptual flow:
+
+    HumanMessage
+        ↓
+    Gemini
+        ↓
+    Tool Call
+        ↓
+    search_restaurants()
+        ↓
+    Foursquare Places API
+        ↓
+    Tool Result
+        ↓
+    Gemini
+        ↓
+    Structured FoodAnalysis
+
+The conversation will contain:
+
+    HumanMessage
+    AIMessage
+    ToolMessage
+
+The ToolMessage will contain the normalized restaurant candidates returned by the Restaurant Search Tool.
+
+Gemini will then analyze those candidates using the travel context.
+
+---
+
+### 17. Structured Output
+
+The Food Agent will use Pydantic structured output through the existing LLM abstraction.
+
+The architecture will follow:
+
+    get_structured_llm(FoodAnalysis)
+
+The final response will then be converted using:
+
+    final_response.model_dump()
+
+and stored in:
+
+    state["restaurants"]
+
+This provides predictable downstream data for the Itinerary Agent.
+
+---
+
+### 18. Why We Do Not Use the Foursquare Ask Endpoint Initially
+
+Foursquare also provides an Ask endpoint that supports natural-language place search and contextual information.
+
+For example, the endpoint can accept a natural-language query and additional context such as traveler preferences.
+
+However, the initial Food Agent will use the standard Place Search endpoint instead.
+
+Reasons:
+
+    1. It gives us explicit control over search parameters.
+    2. It exposes price filtering directly.
+    3. It supports explicit sorting.
+    4. It makes the tool-calling workflow easier to understand.
+    5. It keeps retrieval separate from LLM reasoning.
+    6. It provides a clearer learning experience for the project.
+
+The Ask endpoint can be evaluated later as an advanced enhancement.
+
+---
+
+### 19. API Usage and Cost Considerations
+
+Foursquare's current pricing changes provide 500 free Pro calls.
+
+After the free allowance, paid usage is charged according to the applicable Places API pricing.
+
+Because the Food Agent is being developed and tested locally, the initial implementation should keep API usage low.
+
+Development practices should include:
+
+    Small result limits
+    Avoiding unnecessary repeated API calls
+    Testing tool definitions without calling the external API
+    Separating unit tests from real API integration tests
+
+The real API integration test should only be executed when required.
+
+---
+
+### 20. Error Handling Requirements
+
+The Restaurant Search Tool should handle common API failures.
+
+Potential cases include:
+
+    Missing API key
+    Invalid API key
+    Unauthorized request
+    Invalid destination
+    Invalid parameters
+    Rate limit
+    Network failure
+    API server failure
+
+The tool should use an HTTP timeout and raise meaningful errors rather than silently returning invalid data.
+
+This will be improved further during the engineering/refactoring stage.
+
+---
+
+### 21. Testing Strategy
+
+The Food Agent will follow the testing pattern already established by the other agents.
+
+Tests should cover:
+
+    Restaurant tool definition
+    FoodAnalysis schema
+    Food Agent behavior
+    API response normalization
+    Shared state integration
+    Graph integration
+
+The initial tests should avoid unnecessary real API calls.
+
+A separate integration test can be used to verify the actual Foursquare API connection.
+
+Expected development cycle:
+
+    Implement
+        ↓
+    Unit Test
+        ↓
+    Integration Test
+        ↓
+    Refactor
+        ↓
+    Document
+        ↓
+    Git
+        ↓
+    GitHub
+
+---
+
+### 22. Integration into LangGraph
+
+The Food Agent will initially be added after the Weather Agent.
+
+Current workflow:
+
+    START
+      ↓
+    Destination Agent
+      ↓
+    Stay Agent
+      ↓
+    Activity Agent
+      ↓
+    Weather Agent
+      ↓
+    END
+
+Target workflow:
+
+    START
+      ↓
+    Destination Agent
+      ↓
+    Stay Agent
+      ↓
+    Activity Agent
+      ↓
+    Weather Agent
+      ↓
+    Food Agent
+      ↓
+    END
+
+The Food Agent will receive the accumulated `TravelState` from previous agents.
+
+This means it can use information such as destination, budget, and preferences while generating food recommendations.
+
+---
+
+### 23. Relationship with the Future Itinerary Agent
+
+The Food Agent should not create the final day-by-day itinerary.
+
+Its responsibility is to provide structured restaurant recommendations.
+
+The future Itinerary Agent will consume:
+
+    Destination Analysis
+    Stay Analysis
+    Activity Analysis
+    Weather Analysis
+    Food Analysis
+
+and combine them into a complete travel schedule.
+
+Therefore:
+
+    Food Agent
+        ↓
+    Food Recommendations
+        ↓
+    Itinerary Agent
+        ↓
+    Day-by-Day Travel Plan
+
+This separation keeps the architecture modular.
+
+---
+
+### 24. Initial Implementation Decision
+
+The initial Food Agent implementation will use:
+
+    LLM:
+        Gemini
+
+    Framework:
+        LangChain
+
+    Orchestration:
+        LangGraph
+
+    External API:
+        Foursquare Places API
+
+    API Endpoint:
+        /places/search
+
+    Authentication:
+        Bearer Service API Key
+
+    Tool:
+        search_restaurants
+
+    Structured Output:
+        Pydantic
+
+    Shared State:
+        TravelState
+
+    Testing:
+        Pytest
+
+The implementation will initially focus on restaurant retrieval and structured recommendation generation.
+
+More advanced functionality such as geocoding, precise coordinates, opening-hour-aware planning, restaurant details, caching, and the Foursquare Ask endpoint can be added later if they provide meaningful value.
+
+---
+
+### 25. Research Conclusion
+
+The Food / Restaurant Agent will extend the AI Travel Planner with real-world restaurant discovery.
+
+The architecture maintains the project's core design principles:
+
+    External APIs provide real-world information.
+    Tools provide controlled access to external systems.
+    Gemini performs reasoning and personalization.
+    Pydantic provides structured output.
+    TravelState provides shared agent state.
+    LangGraph orchestrates the workflow.
+
+The Food Agent therefore becomes another specialized component in the multi-agent travel planning system rather than a generic LLM response generator.
+
+Official References:
+
+    Foursquare Places API Overview:
+    https://docs.foursquare.com/fsq-developers-places/reference/places-api-overview
+
+    Foursquare Place Search:
+    https://docs.foursquare.com/fsq-developers-places/reference/place-search
+
+    Foursquare Authentication:
+    https://docs.foursquare.com/fsq-developers-places/reference/authentication
+
+    Foursquare Ask:
+    https://docs.foursquare.com/fsq-developers-places/reference/ask
+
+    Foursquare Pricing / Upcoming Changes:
+    https://docs.foursquare.com/developer/reference/upcoming-changes

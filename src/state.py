@@ -4,6 +4,7 @@ from src.schemas.destination import DestinationAnalysis
 from src.schemas.stay import StayAnalysis
 from src.schemas.activity import ActivityAnalysis
 from src.schemas.weather import WeatherAnalysis
+from src.schemas.food import FoodAnalysis
 
 
 class TravelState(TypedDict, total=False):
@@ -20,5 +21,5 @@ class TravelState(TypedDict, total=False):
     stay_options: StayAnalysis
     activities: ActivityAnalysis
     weather: WeatherAnalysis
-    restaurants: list[dict]
+    restaurants: FoodAnalysis
     itinerary: dict
