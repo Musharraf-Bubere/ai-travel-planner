@@ -89,4 +89,6 @@ def activity_agent(state: TravelState) -> TravelState:
     else:
         state["activities"] = {}
 
-    return state
+    return {
+        "activities": response.model_dump()
+    }

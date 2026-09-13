@@ -59,7 +59,9 @@ def weather_agent(state: TravelState) -> TravelState:
             tool_call_id=tool_call["id"],
         )
 
-        structured_llm = get_structured_llm(WeatherAnalysis)
+        structured_llm = get_structured_llm(
+            WeatherAnalysis
+        )
 
         final_response = structured_llm.invoke(
             [
@@ -69,6 +71,10 @@ def weather_agent(state: TravelState) -> TravelState:
             ]
         )
 
-        state["weather"] = final_response.model_dump()
+        return {
+            "weather": final_response.model_dump()
+        }
 
-    return state
+    raise ValueError(
+        "Weather agent did not call the weather search tool."
+    )

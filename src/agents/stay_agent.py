@@ -91,4 +91,6 @@ def stay_agent(state: TravelState) -> TravelState:
     else:
         state["stay_options"] = {}
 
-    return state
+    return {
+        "stay_options": response.model_dump()
+    }

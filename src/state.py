@@ -23,3 +23,6 @@ class TravelState(TypedDict, total=False):
     weather: WeatherAnalysis
     restaurants: FoodAnalysis
     itinerary: dict
+    validation: dict
+    validation_attempts: int
+    final_response: dict

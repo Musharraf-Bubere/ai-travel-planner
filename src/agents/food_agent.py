@@ -73,4 +73,6 @@ def food_agent(state: TravelState) -> TravelState:
 
         state["restaurants"] = final_response.model_dump()
 
-    return state
+    return {
+        "restaurants": response.model_dump()
+    }

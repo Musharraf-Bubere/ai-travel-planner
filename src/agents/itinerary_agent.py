@@ -85,4 +85,6 @@ def itinerary_agent(state: TravelState) -> TravelState:
 
     state["itinerary"] = response.model_dump()
 
-    return state
+    return {
+        "itinerary": response.model_dump()
+    }
