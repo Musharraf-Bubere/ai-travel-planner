@@ -56,7 +56,7 @@ The Destination Agent uses real Tavily web research.
 
 The Stay Agent uses real SerpApi Google Hotels data.
 
-The Activity Agent currently uses a controlled activity dataset.
+The Activity Agent uses real SerpApi Google Maps data for activity and attraction discovery.
 
 The Weather Agent uses real WeatherAPI.com forecast data.
 
@@ -102,8 +102,11 @@ Current external services:
 - Google Gemini for LLM operations
 - Tavily for destination web research
 - SerpApi Google Hotels for accommodation search
-- SerpApi Google Maps for restaurant search
+- SerpApi Google Maps for activity and attraction search
 - WeatherAPI.com for weather forecasts
+- SerpApi Google Maps for restaurant search
+
+The same `SERPAPI_API_KEY` is reused for Stay, Activity, and Food integrations.
 
 ## 5. Shared Travel State
 
@@ -566,7 +569,7 @@ The warning originates from a dependency used by the Google GenAI library and do
 
 ## 19. Current Project Structure
 
-The current implementation structure is:
+The current implementation structure includes specialist agents, schemas, tools, graph orchestration, services, tests, and documentation.
 
     ai-travel-planner/
     │
@@ -577,31 +580,57 @@ The current implementation structure is:
     │
     ├── src/
     │   ├── __init__.py
-    │   │
     │   ├── state.py
     │   │
     │   ├── agents/
     │   │   ├── __init__.py
-    │   │   └── destination_agent.py
+    │   │   ├── destination_agent.py
+    │   │   ├── stay_agent.py
+    │   │   ├── activity_agent.py
+    │   │   ├── weather_agent.py
+    │   │   └── food_agent.py
     │   │
     │   ├── graph/
     │   │   ├── __init__.py
     │   │   └── travel_graph.py
     │   │
-    │   └── services/
-    │       ├── __init__.py
-    │       └── llm.py
+    │   ├── schemas/
+    │   │   ├── destination.py
+    │   │   ├── stay.py
+    │   │   ├── activity.py
+    │   │   ├── weather.py
+    │   │   └── food.py
+    │   │
+    │   ├── services/
+    │   │   ├── __init__.py
+    │   │   └── llm.py
+    │   │
+    │   └── tools/
+    │       ├── destination.py
+    │       ├── accommodation.py
+    │       ├── activity.py
+    │       ├── weather.py
+    │       └── food.py
     │
     ├── tests/
+    │   ├── test_state.py
     │   ├── test_graph.py
     │   ├── test_llm.py
-    │   └── test_state.py
+    │   ├── test_destination_schema.py
+    │   ├── test_accommodation_tool.py
+    │   ├── test_stay_schema.py
+    │   ├── test_weather_tool.py
+    │   ├── test_weather_schema.py
+    │   ├── test_weather_agent.py
+    │   ├── test_food_schema.py
+    │   ├── test_food_tool.py
+    │   └── test_food_agent.py
     │
     ├── .gitignore
     ├── README.md
     └── requirements.txt
 
----
+The Activity Agent currently has been validated through direct tool and agent execution. A dedicated automated Activity test file can be added as part of the next testing/refactoring pass.
 
 ## 20. Current Architecture
 
@@ -610,31 +639,55 @@ The current implementation can be represented as:
     User Travel Information
             │
             ▼
-       TravelState
+        TravelState
             │
             ▼
-       LangGraph
+        LangGraph
             │
             ▼
     Destination Agent
             │
-            ├── Build Prompt
+            ├── Tavily Research Tool
             │
             ▼
-        LLM Service
+    DestinationAnalysis
             │
             ▼
-    Gemini 3.5 Flash-Lite
+        Stay Agent
+            │
+            ├── SerpApi Google Hotels
             │
             ▼
-    Destination Analysis
+        StayAnalysis
             │
             ▼
-       TravelState
+    Activity Agent
+            │
+            ├── SerpApi Google Maps
+            │
+            ▼
+    ActivityAnalysis
+            │
+            ▼
+    Weather Agent
+            │
+            ├── WeatherAPI.com
+            │
+            ▼
+    WeatherAnalysis
+            │
+            ▼
+        Food Agent
+            │
+            ├── SerpApi Google Maps
+            │
+            ▼
+        FoodAnalysis
+            │
+            ▼
+        TravelState
 
-The LLM service is shared independently from the agent logic.
-
----
+The current graph is sequential. The final architecture will introduce parallel execution, conditional routing, and iterative itinerary refinement.
 
 ## 21. Current Capabilities
 
@@ -642,47 +695,45 @@ The current implementation can:
 
 - Represent travel requirements using shared state
 - Build and execute a LangGraph workflow
-- Execute a Destination Agent
-- Construct a destination-specific prompt
-- Connect to Gemini 3.5 Flash-Lite
-- Generate destination analysis using the LLM
-- Store the generated analysis in the shared state
-- Configure the Gemini model through environment variables
-- Validate the Gemini API key
-- Automatically test the core components
+- Execute five specialist travel agents
+- Research destinations using real Tavily web search
+- Search real accommodation options using SerpApi Google Hotels
+- Search real activities and attractions using SerpApi Google Maps
+- Retrieve real weather forecasts using WeatherAPI.com
+- Search real restaurant options using SerpApi Google Maps
+- Use Gemini for agent reasoning
+- Use Gemini tool calling for external data retrieval
+- Produce Pydantic structured analysis
+- Store specialist outputs in shared TravelState
+- Execute multiple specialist agents through LangGraph
+- Run the current automated test suite
+- Validate real API integrations for Destination, Stay, Activity, Weather, and Food through direct/integration execution
 
----
+The Activity Agent has replaced the previous mock activity dataset with real SerpApi Google Maps retrieval.
 
 ## 22. What Has Not Been Implemented Yet
 
-The following features are part of the planned project but are not yet implemented:
+The following features are part of the planned final system but are not yet implemented:
 
-- Structured output
-- Pydantic travel response schemas
-- Real destination research tools
-- Hotel/Stay Agent
-- Activity Agent
-- Weather Agent
-- Food/Restaurant Agent
 - Itinerary Agent
-- External travel APIs
-- Tool calling
+- Final Response Agent
+- Itinerary validation
 - Parallel workflows
 - Conditional workflows
-- MCP integration
-- LLM provider abstraction
+- Iterative workflows
 - FastAPI backend
 - Streamlit frontend
-- PostgreSQL persistence
-- Advanced error handling
-- Full test coverage for agents and tools
+- MCP integration
+- Persistence
+- Global tool-calling refactor
+- Centralized error handling
+- LLM provider abstraction
+- Dedicated automated Activity Agent tests
 - Docker
 - GitHub Actions
-- GCP deployment
+- Deployment
 
-These features will be implemented incrementally.
-
----
+The core research-agent layer is now substantially implemented. The next major development stage is itinerary generation and the hybrid LangGraph workflow.
 
 ## 23. Development Principle
 
@@ -1278,676 +1329,367 @@ The Stay Agent is functionally complete for the current development stage.
 
 ### Purpose
 
-The Activity Agent is a specialized AI agent responsible for finding, evaluating, and recommending activities and experiences for the traveler's destination.
+The Activity Agent is responsible for finding relevant activities, attractions, and experiences for a travel destination.
 
-Instead of asking one general-purpose agent to handle destination research, accommodation, activities, food, weather, and itinerary planning, each responsibility is separated into a focused agent.
+It considers:
 
-The Activity Agent will therefore focus specifically on:
+- Destination
+- Traveler preferences
+- Trip duration
+- Number of travelers
+- Budget
+- Available activity information
 
-- Things to do
-- Places and experiences to visit
-- Adventure activities
-- Cultural experiences
-- Sightseeing
-- Entertainment
-- Activities matching traveler preferences
-- Activities appropriate for the trip duration and budget
-
-The Activity Agent will eventually provide activity information to the Itinerary Agent.
-
----
+The Activity Agent is a specialized research component and does not generate the final itinerary.
 
 ### Why a Separate Activity Agent?
 
-A travel planner needs more than destination information.
+Activity planning is a distinct travel-planning responsibility.
 
-For example, a user may request:
+A dedicated Activity Agent allows the system to:
 
-    Plan a 5-day Goa trip for 2 people with a ₹30,000 budget.
-    We enjoy beaches, adventure, and local food.
+- Search real activities and attractions
+- Consider traveler preferences
+- Categorize activity options
+- Rank suitable candidates
+- Provide structured activity information
+- Supply activity data to the future Itinerary Agent
 
-The Destination Agent can determine suitable areas and destination information.
-
-The Stay Agent can determine suitable accommodation.
-
-However, determining what the traveler should actually do during the trip is a separate responsibility.
-
-The Activity Agent handles this responsibility.
-
-The separation provides:
-
-- Clear responsibilities
-- Easier testing
-- Better maintainability
-- Independent tool integration
-- Better personalization
-- Reusable activity data
-- Cleaner communication between agents
-
-The architectural principle is:
+This follows the project principle:
 
     One specialized agent
-            |
-            v
+        ↓
     One focused responsibility
 
----
+### Selected Data Source
 
-### Activity Agent Responsibilities
+The initial Activity Agent used a controlled/mock activity dataset.
 
-The Activity Agent will be responsible for:
+A real external activity data source was required for the current implementation.
 
-1. Understanding the destination.
-2. Understanding the trip duration.
-3. Understanding the number of travelers.
-4. Understanding the traveler's budget.
-5. Understanding traveler preferences.
-6. Searching for relevant activities.
-7. Evaluating available activities.
-8. Selecting suitable activities.
-9. Organizing activities by category.
-10. Producing structured activity recommendations.
+Amadeus was initially considered because of its travel-related activity capabilities. However, the Amadeus for Developers self-service portal has been decommissioned, so it was not suitable for a new integration.
 
-The Activity Agent should not be responsible for:
+The selected provider is:
 
-- Accommodation booking
-- Restaurant selection
-- Weather forecasting
-- Final itinerary generation
-- General application API handling
+    SerpApi Google Maps
 
-Those responsibilities belong to other components or agents.
+This provider is already used by the Stay and Food agents, allowing the project to reuse the existing:
 
----
+    SERPAPI_API_KEY
 
-### Activity Agent Inputs
+### Why SerpApi Google Maps?
 
-The Activity Agent will consume information from the shared `TravelState`.
+SerpApi Google Maps supports Google Maps-style local searches and can return structured local results for attractions, tourist locations, experiences, and other activity-related places.
 
-Relevant inputs include:
+The main advantages are:
 
-    TravelState
-        |
-        ├── destination
-        ├── duration
-        ├── travelers
-        ├── budget
-        └── preferences
-
-Example:
-
-    destination = "Goa"
-    duration = 5
-    travelers = 2
-    budget = 30000
-    preferences = [
-        "beaches",
-        "adventure",
-        "local food"
-    ]
-
-These values allow the Activity Agent to generate personalized recommendations instead of generic activity suggestions.
-
----
-
-### Activity Agent Output
-
-The Activity Agent should not return unrestricted natural-language text.
-
-Instead, it should produce structured information that can be consumed by other agents.
-
-The conceptual output is:
-
-    ActivityAnalysis
-        |
-        ├── recommended_activities
-        ├── activities_by_category
-        ├── budget_assessment
-        └── activity_recommendation
-
-Each individual activity can contain:
-
-    Activity
-        |
-        ├── name
-        ├── location
-        ├── category
-        ├── estimated_cost
-        ├── duration
-        └── description
-
-Structured output makes the Activity Agent easier to test and allows the future Itinerary Agent to consume activity information programmatically.
-
----
-
-### Activity Agent and Activity Tool
-
-The Activity Agent and Activity Search Tool have different responsibilities.
-
-The Activity Agent is responsible for reasoning and recommendation.
-
-The Activity Tool is responsible for retrieving activity information.
-
-Conceptually:
-
-    Activity Agent
-          |
-          v
-         LLM
-          |
-          v
-    Tool Calling
-          |
-          v
-    Activity Search Tool
-          |
-          v
-    Activity Data
-          |
-          v
-         LLM
-          |
-          v
-    ActivityAnalysis
-
-This separation follows the same architectural principle established by the Stay Agent.
-
----
+1. Existing project provider
+2. Existing API credential
+3. Activity and attraction discovery
+4. Structured JSON results
+5. Simple REST integration
+6. No additional provider-specific authentication
+7. Consistent tool architecture with the Food Agent
 
 ### Activity Search Tool
 
-The Activity Search Tool will provide activity information to the Activity Agent.
+The activity search tool is implemented in:
 
-Conceptually:
+    src/tools/activity.py
+
+The application-level interface is:
 
     search_activities(
         destination,
-        budget,
-        preferences
+        preferences,
+        limit
     )
 
-The tool should return structured activity information.
+The tool:
+
+1. Loads `SERPAPI_API_KEY`.
+2. Validates the key.
+3. Builds an activity-focused Google Maps query.
+4. Sends the request to SerpApi.
+5. Validates the HTTP response.
+6. Parses the JSON response.
+7. Normalizes local results.
+8. Returns activity candidates.
+
+### Search Query
+
+The tool constructs a query similar to:
+
+    things to do, activities, attractions, and experiences in {destination}
+
+Traveler preferences are appended when available.
 
 Example:
 
-    [
-        {
-            "name": "Scuba Diving",
-            "location": "Grande Island",
-            "category": "Adventure",
-            "estimated_cost": 2500,
-            "duration": "Half day",
-            "description": "Scuba diving experience suitable for adventure-focused travelers."
-        }
-    ]
+    things to do, activities, attractions, and experiences in Goa, India for beaches, adventure, food
 
-Returning structured information gives the LLM explicit fields for evaluating and comparing activities.
+The request uses parameters equivalent to:
 
----
+    engine = google_maps
+    q = activity search query
+    type = search
+    limit = requested result count
+    hl = en
+    gl = in
+    api_key = SERPAPI_API_KEY
 
-### Activity Data Source Strategy
+### Activity Data Normalization
 
-The Activity Agent will use a two-stage data-source strategy.
-
-#### Initial Implementation
-
-The first implementation will use a controlled activity dataset behind a LangChain tool.
-
-    Activity Agent
-          |
-          v
-    search_activities()
-          |
-          v
-    Controlled Activity Data
-
-This approach allows the project to focus on learning and implementing:
-
-- Tool calling
-- Agent reasoning
-- Structured output
-- Pydantic validation
-- LangGraph integration
-- Testing
-
-without making the initial implementation dependent on an external activity API.
-
-#### Future Implementation
-
-The same tool interface can later be connected to a real external data source.
-
-    Activity Agent
-          |
-          v
-    search_activities()
-          |
-          v
-    External API / Search / MCP
-          |
-          v
-    Real Activity Information
-
-The Activity Agent should not need to change when the underlying data provider changes.
-
-This provides provider independence and cleaner architecture.
-
----
-
-### Activity Tool Provider Independence
-
-The tool interface should be separated from its implementation.
-
-The Activity Agent should conceptually depend on:
-
-    search_activities()
-
-rather than directly depending on:
-
-    SpecificActivityProvider()
-
-This allows the implementation to evolve from:
-
-    Controlled Data
-          |
-          v
-    External API
-          |
-          v
-    Search
-          |
-          v
-    MCP Tool
-
-while keeping the Activity Agent interface stable.
-
-This is an important engineering principle for the project:
-
-    Agent
-      |
-      v
-    Stable Tool Interface
-      |
-      v
-    Replaceable Data Provider
-
----
-
-### Activity Tool Calling Flow
-
-The Activity Agent will use the standard tool-calling pattern.
-
-The conceptual flow is:
-
-    HumanMessage
-         |
-         v
-        LLM
-         |
-         v
-    AIMessage
-    (tool call)
-         |
-         v
-    Application executes tool
-         |
-         v
-    ToolMessage
-    (tool result)
-         |
-         v
-        LLM
-         |
-         v
-    Final Structured Output
-
-The tool call contains the required tool arguments.
-
-The application executes the tool and sends the result back to the model.
-
-The model can then evaluate the retrieved activity information and produce the final structured response.
-
----
-
-### Structured Output
-
-The Activity Agent will use Pydantic models for structured output.
-
-The planned schema contains two conceptual models.
-
-#### Activity
-
-The `Activity` model represents an individual activity.
-
-Expected fields:
+The external Google Maps result is normalized into the project's Activity structure:
 
     Activity
-        |
-        ├── name
-        ├── location
-        ├── category
-        ├── estimated_cost
-        ├── duration
-        └── description
+    ├── name
+    ├── location
+    ├── category
+    ├── estimated_cost
+    ├── duration
+    └── description
 
-#### ActivityAnalysis
+Current mappings include:
 
-The `ActivityAnalysis` model represents the complete analysis produced by the Activity Agent.
+    title       → name
+    address     → location
+    type        → category
+    description → description
 
-Expected fields:
+### Price and Duration Handling
+
+Google Maps local search does not guarantee standardized activity prices or durations for every result.
+
+The implementation therefore does not invent missing values.
+
+When price information is unavailable:
+
+    estimated_cost = 0.0
+
+When duration information is unavailable:
+
+    duration = "Not available"
+
+This explicitly represents unavailable source information rather than fabricating factual values.
+
+### API vs LLM Responsibilities
+
+The external API is responsible for real-world activity discovery.
+
+Gemini is responsible for:
+
+- Understanding traveler preferences
+- Categorizing retrieved activities
+- Ranking candidates
+- Summarizing retrieved information
+- Producing structured recommendations
+- Assessing the available activity information
+
+The intended architecture is:
+
+    External API
+        ↓
+    Real Activity Candidates
+        ↓
+    LLM Reasoning
+        ↓
+    Structured ActivityAnalysis
+
+### Grounding Consideration
+
+The Activity Agent prompt explicitly instructs Gemini to use retrieved tool results and not invent factual activity fields.
+
+The model may:
+
+- Categorize retrieved activities
+- Rank them according to preferences
+- Summarize retrieved descriptions
+- Assess available activity information
+
+The model should not invent:
+
+- New activities
+- Prices
+- Durations
+- Ratings
+- Other unsupported factual details
+
+A stricter grounding mechanism will be considered during the later global tool-calling/refactoring pass.
+
+### Provider Independence
+
+The Activity Agent depends on:
+
+    search_activities()
+
+rather than directly depending on SerpApi.
+
+The provider-specific implementation remains inside:
+
+    src/tools/activity.py
+
+Therefore, the underlying activity provider can later be replaced without redesigning the Activity Agent.
+
+Possible future providers include:
+
+- Another Places/Maps API
+- A dedicated experiences API
+- An MCP-based activity tool
+- Another suitable travel data provider
+
+### Activity Structured Output
+
+The Activity Agent uses the existing Pydantic models:
+
+    Activity
+    ActivityAnalysis
+
+The structure is:
 
     ActivityAnalysis
-        |
-        ├── recommended_activities
-        ├── activities_by_category
-        ├── budget_assessment
-        └── activity_recommendation
+    ├── recommended_activities
+    ├── activities_by_category
+    ├── budget_assessment
+    └── activity_recommendation
 
-Structured output provides predictable information for downstream components.
+Each activity contains:
 
----
+    Activity
+    ├── name
+    ├── location
+    ├── category
+    ├── estimated_cost
+    ├── duration
+    └── description
 
-### Why Structured Output Matters
+### Activity Tool-Calling Flow
 
-Without structured output, an Activity Agent might return:
+The Activity Agent follows the project's established tool-calling pattern:
 
-    Goa has many great activities.
-    You can try scuba diving, visit beaches,
-    explore forts, and take a sunset cruise.
-
-This is difficult for another program or agent to reliably consume.
-
-With structured output:
-
-    ActivityAnalysis
-        |
-        ├── recommended_activities
-        ├── activities_by_category
-        ├── budget_assessment
-        └── activity_recommendation
-
-the Itinerary Agent can programmatically use the activity information.
-
-Therefore:
-
-    Free-form response
-          |
-          v
-    Difficult to process
-
-    Structured response
-          |
-          v
-    Easy to validate and consume
-
----
-
-### Activity Agent and Shared State
-
-The Activity Agent will communicate with other agents through `TravelState`.
-
-The relevant state progression is:
-
-    TravelState
-        |
-        ├── destination
-        ├── duration
-        ├── travelers
-        ├── budget
-        ├── preferences
-        |
-        ├── destination_data
-        ├── stay_options
-        |
-        └── activities
-
-The Activity Agent reads the travel requirements and writes its activity analysis into:
-
-    state["activities"]
-
-This allows future agents to consume the activity information without directly depending on the Activity Agent implementation.
-
----
-
-### Activity Agent in LangGraph
-
-The current graph is:
-
-    START
-      |
-      v
-    Destination Agent
-      |
-      v
-    Stay Agent
-      |
-      v
-    END
-
-After implementing the Activity Agent:
-
-    START
-      |
-      v
-    Destination Agent
-      |
-      v
-    Stay Agent
-      |
-      v
-    Activity Agent
-      |
-      v
-    END
-
-The Activity Agent will therefore become another node in the LangGraph workflow.
-
-The graph is responsible for orchestration, while the Activity Agent is responsible for activity-specific reasoning.
-
----
-
-### Activity Agent Workflow
-
-The planned Activity Agent workflow is:
-
-    TravelState
-         |
-         v
-    Activity Agent
-         |
-         v
-    Build Activity Prompt
-         |
-         v
-        Gemini
-         |
-         v
-    Tool Calling?
-       /     \
-     Yes      No
-      |        |
-      v        v
-    Activity   Handle
-    Search     response
-      |
-      v
-    Activity Data
-      |
-      v
-    ToolMessage
-      |
-      v
+    HumanMessage
+        ↓
     Gemini
-      |
-      v
-    Structured Output
-      |
-      v
+        ↓
+    AIMessage
+        ↓
+    Tool Call
+        ↓
+    search_activities()
+        ↓
+    SerpApi Google Maps
+        ↓
+    Tool Result
+        ↓
+    ToolMessage
+        ↓
+    Structured Gemini
+        ↓
     ActivityAnalysis
-      |
-      v
-    TravelState
+        ↓
+    TravelState["activities"]
 
-This workflow follows the same tool-calling and structured-output pattern established by the Stay Agent.
+### Testing Research Decision
 
----
+The Activity tool was tested directly with a real SerpApi request.
 
-### Activity Agent and Future Itinerary Agent
+Example:
 
-One of the most important reasons for creating structured ActivityAnalysis is future interoperability.
+    Destination: Goa, India
+    Preferences:
+    - beaches
+    - adventure
+    - food
+    Limit: 5
 
-The Activity Agent produces:
+The real response returned activity/attraction candidates including examples such as:
 
-    ActivityAnalysis
-          |
-          v
-    TravelState.activities
-          |
-          v
-    Itinerary Agent
+- Parental Umbrage boat-trip-related attraction
+- Butterfly Beach Goa
+- Thunder World Goa Amusement Parks
+- Goosebumps Virtual Escape
+- Velsao Beach
 
-The Itinerary Agent can later combine:
+The Activity Agent was then executed using a real tool call and successfully returned a structured `ActivityAnalysis`.
 
-    Destination Data
-          +
-    Stay Options
-          +
-    Activities
-          +
-    Weather
-          +
-    Restaurants
-          |
-          v
-    Final Itinerary
+The current full automated suite remains:
 
-Therefore, the Activity Agent is not an isolated feature.
+    12 passed
+    1 warning
 
-It is a building block for the final multi-agent travel planning workflow.
+The Activity Agent itself has been validated through direct execution; a dedicated automated Activity test file is a planned testing improvement.
 
----
+### LangGraph Role
 
-### Activity Agent Architectural Progression
+The Activity Agent is currently a node in the sequential graph:
 
-The project architecture is progressively becoming more capable.
-
-#### Destination Agent
-
+    START
+      ↓
     Destination Agent
-          |
-          v
-         LLM
-          |
-          v
-    Structured Output
-          |
-          v
-    DestinationAnalysis
-
-#### Stay Agent
-
+      ↓
     Stay Agent
-          |
-          v
-         LLM
-          |
-          v
-    Tool Calling
-          |
-          v
-    External / Controlled Data
-          |
-          v
-    Structured Output
-          |
-          v
-    StayAnalysis
-
-#### Activity Agent
-
+      ↓
     Activity Agent
-          |
-          v
-         LLM
-          |
-          v
-    Tool Calling
-          |
-          v
-    Activity Data
-          |
-          v
-    Structured Output
-          |
-          v
+      ↓
+    Weather Agent
+      ↓
+    Food Agent
+      ↓
+    END
+
+The final architecture will execute Activity in parallel with Stay and Weather after Destination research.
+
+### Relationship with Itinerary Agent
+
+The Activity Agent does not generate the final itinerary.
+
+It provides:
+
+    TravelState["activities"]
+
+The future Itinerary Agent will combine:
+
+    DestinationAnalysis
+        +
+    StayAnalysis
+        +
     ActivityAnalysis
-
-This progression establishes a reusable pattern for future Food, Weather, and Itinerary agents.
-
----
-
-### Research Decision
-
-The Activity Agent will be implemented using:
-
-- Gemini as the LLM
-- LangChain for LLM and tool integration
-- LangGraph for orchestration
-- Pydantic for structured output
-- A controlled activity search tool for the initial implementation
-- Shared `TravelState` for inter-agent communication
-
-The first implementation will prioritize architecture and correctness rather than immediately integrating a real external activity provider.
-
-A real external data source can be introduced later without changing the core Activity Agent architecture.
-
----
+        +
+    WeatherAnalysis
+        +
+    FoodAnalysis
+        ↓
+    Day-by-Day Itinerary
 
 ### Research Conclusion
 
-The Activity Agent should be implemented as a specialized LangGraph node that:
+The Activity Agent has been upgraded from mock data to a real SerpApi Google Maps integration.
 
-1. Reads travel requirements from `TravelState`.
-2. Uses Gemini for reasoning.
-3. Calls an activity search tool when activity information is required.
-4. Receives structured activity data from the tool.
-5. Evaluates activities according to destination, budget, duration, travelers, and preferences.
-6. Produces validated Pydantic structured output.
-7. Stores the resulting activity analysis in `TravelState`.
+The final research architecture is:
 
-The Activity Agent therefore extends the project's existing architecture from:
-
-    Structured Destination Research
-
-to:
-
-    Structured Research
-          +
-    Tool Calling
-          +
-    External / Controlled Data
-          +
-    Structured Output
-
-This establishes the foundation for future activity-aware itinerary generation.
+    Activity Agent
+        ↓
+    search_activities()
+        ↓
+    SerpApi Google Maps
+        ↓
+    Real Activity Candidates
+        ↓
+    Gemini
+        ↓
+    ActivityAnalysis
+        ↓
+    TravelState
 
 ---
-
-### Research Sources
-
-- LangChain Tools documentation — LangChain
-- LangChain Tool Calling documentation — LangChain
-- LangChain Structured Output documentation — LangChain
-- LangGraph documentation — LangChain
-- Gemini Function Calling documentation — Google AI
-- Gemini Structured Output documentation — Google AI
 
 ## Activity Agent Implementation
 
 ### Overview
 
-The Activity Agent is the third specialized agent implemented in the AI Travel Planner.
+The Activity Agent is the third specialist research agent implemented in the AI Travel Planner.
 
-Its responsibility is to research and recommend activities based on:
+Its responsibility is to retrieve and recommend activities and attractions based on:
 
 - Destination
 - Trip duration
@@ -1955,245 +1697,148 @@ Its responsibility is to research and recommend activities based on:
 - Budget
 - Traveler preferences
 
-The Activity Agent follows the same agentic pattern established by the Stay Agent:
-
-    TravelState
-         |
-         v
-    Activity Agent
-         |
-         v
-    Gemini
-         |
-         v
-    Tool Calling
-         |
-         v
-    Activity Search Tool
-         |
-         v
-    Activity Data
-         |
-         v
-    Structured Output
-         |
-         v
-    ActivityAnalysis
-         |
-         v
-    TravelState
-
----
+The implementation follows the same tool-calling and structured-output pattern established by the Stay Agent.
 
 ### Activity Schema
 
-A new Pydantic schema was created at:
+The schema is implemented in:
 
     src/schemas/activity.py
 
-The schema contains two models:
+The `Activity` model contains:
 
-- `Activity`
-- `ActivityAnalysis`
+    name: str
+    location: str
+    category: str
+    estimated_cost: float
+    duration: str
+    description: str
 
-#### Activity
+The `ActivityAnalysis` model contains:
 
-The `Activity` model represents an individual activity.
+    recommended_activities: list[Activity]
+    activities_by_category: dict[str, list[str]]
+    budget_assessment: str
+    activity_recommendation: str
 
-    class Activity(BaseModel):
-        name: str
-        location: str
-        category: str
-        estimated_cost: float
-        duration: str
-        description: str
+### Real Activity Search Tool
 
-The fields represent:
-
-- `name` — activity name
-- `location` — activity location
-- `category` — activity category
-- `estimated_cost` — estimated activity cost
-- `duration` — expected activity duration
-- `description` — activity description
-
-Example:
-
-    Activity(
-        name="Scuba Diving",
-        location="Grande Island",
-        category="Adventure",
-        estimated_cost=2500,
-        duration="Half day",
-        description="Scuba diving experience suitable for adventure-focused travelers."
-    )
-
----
-
-### ActivityAnalysis
-
-The `ActivityAnalysis` model represents the complete output of the Activity Agent.
-
-    class ActivityAnalysis(BaseModel):
-        recommended_activities: list[Activity]
-        activities_by_category: dict[str, list[str]]
-        budget_assessment: str
-        activity_recommendation: str
-
-The output contains:
-
-- `recommended_activities` — recommended activity objects
-- `activities_by_category` — activities grouped by category
-- `budget_assessment` — assessment of activity costs against the travel budget
-- `activity_recommendation` — overall recommendation
-
-Using Pydantic provides predictable and validated output for downstream agents.
-
----
-
-### Activity Search Tool
-
-A new activity search tool was created at:
+The real activity search tool is implemented in:
 
     src/tools/activity.py
 
-The tool is implemented using LangChain's `@tool` decorator.
+It uses:
 
-    @tool
-    def search_activities(
-        destination: str,
-        budget: float,
-        preferences: list[str],
-    ) -> list[dict]:
+    requests
+    python-dotenv
+    LangChain @tool
+    SerpApi Google Maps
 
-The tool currently returns a controlled set of activity data.
+The tool validates:
 
-Example activities include:
+    SERPAPI_API_KEY
 
-    Baga Beach
-    Scuba Diving
-    Parasailing
-    Fort Aguada
-    Sunset Cruise
+and raises a clear configuration error when the key is missing.
 
-Each activity contains structured fields:
+### Current Tool Implementation Behavior
 
-    name
-    location
-    category
-    estimated_cost
-    duration
-    description
+The tool builds an activity query from:
 
-The initial implementation intentionally uses controlled data rather than a real external API.
+    destination
+    +
+    preferences
 
-This allows the Activity Agent architecture to be tested independently before introducing external data providers.
+and requests Google Maps local results.
 
----
+The tool normalizes each result into:
 
-### Activity Tool Testing
+    {
+        "name": ...,
+        "location": ...,
+        "category": ...,
+        "estimated_cost": 0.0,
+        "duration": "Not available",
+        "description": ...
+    }
 
-The Activity Search Tool was tested independently using:
+The default values for price and duration are intentional because the source does not guarantee standardized values for every activity.
 
-    search_activities.invoke(
-        {
-            "destination": "Goa",
-            "budget": 5000,
-            "preferences": ["beaches", "adventure"]
-        }
-    )
+### Real API Test
 
-The tool successfully returned a list of structured activity dictionaries.
+The activity tool was tested with:
 
-Example result:
+    Destination: Goa, India
+    Preferences:
+    - beaches
+    - adventure
+    - food
+    Limit: 5
 
-    [
-        {
-            "name": "Baga Beach",
-            "location": "Baga",
-            "category": "Beach",
-            "estimated_cost": 0,
-            "duration": "2-3 hours",
-            "description": "Popular beach suitable for relaxation and water activities."
-        },
-        {
-            "name": "Scuba Diving",
-            "location": "Grande Island",
-            "category": "Adventure",
-            "estimated_cost": 2500,
-            "duration": "Half day",
-            "description": "Scuba diving experience suitable for adventure-focused travelers."
-        }
-    ]
+The request successfully returned real Google Maps results.
 
-A dedicated test was added:
+The test returned real places such as:
 
-    tests/test_accommodation_tool.py
+    Butterfly Beach Goa
+    Velsao Beach
+    Thunder World Goa Amusement Parks
+    Goosebumps Virtual Escape
+    Boat-trip-related attractions
 
-The tool test verifies that:
-
-- The tool returns data.
-- The result is a list.
-- Activity names are present.
-- Returned activity costs satisfy the test budget.
-
----
+This confirms that the Activity Agent no longer depends on the previous mock dataset.
 
 ### Activity Agent
 
-The Activity Agent was created at:
+The Activity Agent is implemented in:
 
     src/agents/activity_agent.py
-
-The agent uses:
-
-- `TravelState`
-- Gemini
-- LangChain tool calling
-- `search_activities`
-- Pydantic structured output
 
 The main function is:
 
     activity_agent(state: TravelState) -> TravelState
 
----
+The agent:
+
+1. Reads travel requirements from `TravelState`.
+2. Builds the Activity prompt.
+3. Obtains Gemini through the shared LLM service.
+4. Binds `search_activities`.
+5. Invokes Gemini.
+6. Executes the requested tool call.
+7. Creates a `ToolMessage`.
+8. Invokes structured Gemini output.
+9. Stores the resulting `ActivityAnalysis` in `TravelState`.
 
 ### Activity Prompt Construction
 
-The Activity Agent builds a prompt from the current travel state.
-
-The prompt includes:
+The prompt contains:
 
     Destination
+    Travel Dates
     Duration
     Travelers
     Budget
     Preferences
 
-Example:
+The prompt also contains explicit data-grounding instructions:
 
-    Destination: Goa
-    Duration: 5 days
-    Travelers: 2
-    Budget: 30000.0
-    Preferences: beaches, adventure
-
-The prompt instructs Gemini to evaluate available activities based on:
-
-1. Traveler preferences
-2. Budget
-3. Duration
-4. Activity category
-5. Location
-
-This allows the LLM to make recommendations based on the complete travel context.
-
----
+1. Use only retrieved activity information.
+2. Do not introduce activities that are not present in tool results.
+3. Do not invent prices, durations, ratings, or other factual details.
+4. Use `0.0` when price information is unavailable.
+5. Use `"Not available"` when duration information is unavailable.
+6. Base descriptions on retrieved information.
+7. Categorize and rank retrieved activities according to preferences.
+8. Acknowledge unavailable pricing in the budget assessment.
 
 ### Gemini Tool Calling
 
-The Activity Agent binds the activity search tool to Gemini.
+The Activity Agent binds:
+
+    search_activities
+
+to Gemini.
+
+The flow is:
 
     llm = get_llm()
 
@@ -2201,124 +1846,91 @@ The Activity Agent binds the activity search tool to Gemini.
         [search_activities]
     )
 
-The Activity Agent then sends the travel request to Gemini.
+Gemini can then request the activity search tool.
 
-If Gemini decides that the activity search tool is required, it produces a tool call.
-
-The implementation retrieves the first tool call:
-
-    tool_call = response.tool_calls[0]
-
-The tool arguments are then passed to:
+The application executes:
 
     search_activities.invoke(
         tool_call["args"]
     )
 
----
-
 ### Tool Message Flow
 
-The tool result is converted into a `ToolMessage`.
+The tool result is passed back through `ToolMessage`.
 
-The complete message sequence is:
+The message sequence is:
 
     HumanMessage
-         |
-         v
+        ↓
     AIMessage
     (tool call)
-         |
-         v
+        ↓
     ToolMessage
     (tool result)
-         |
-         v
+        ↓
     Structured LLM
-         |
-         v
+        ↓
     ActivityAnalysis
 
-This follows the same successful tool-calling pattern implemented by the Stay Agent.
-
----
+This is consistent with the Stay, Food, and Destination tool-calling architecture.
 
 ### Structured Activity Output
 
-After receiving the activity tool result, the Activity Agent creates a structured LLM using:
+After receiving the tool result, the agent creates:
 
     get_structured_llm(ActivityAnalysis)
 
-The model is then invoked with:
+The structured model receives the user message, AI response, and tool result.
 
-    [
-        user_message,
-        response,
-        tool_message,
-    ]
+The final result is serialized with:
 
-Gemini converts the retrieved activity information into the `ActivityAnalysis` Pydantic structure.
+    final_response.model_dump()
 
-The resulting model is stored in the shared state using:
+and stored in:
 
-    state["activities"] = final_response.model_dump()
+    state["activities"]
 
-This allows the rest of the travel planning graph to access the activity information.
+### Activity Agent Validation
 
----
+The Activity Agent was executed directly using:
 
-### Activity Agent Testing
-
-The Activity Agent was first tested independently before integrating it into LangGraph.
-
-The test request used:
-
-    Destination: Goa
-    Duration: 5 days
+    Destination: Goa, India
+    Travel Dates: 2026-10-10 to 2026-10-12
+    Duration: 2
     Travelers: 2
-    Budget: 30000
+    Budget: 50000
     Preferences:
     - beaches
     - adventure
+    - food
 
 The agent successfully returned:
 
     recommended_activities
-
     activities_by_category
-
     budget_assessment
-
     activity_recommendation
 
-Example categories returned included:
+The grounding prompt successfully prevented the model from inventing activity prices or durations when those values were unavailable from the tool.
 
-    Beach
-    Adventure
-    Culture
-    Experience
+A remaining limitation is that LLM grounding is prompt-based rather than enforced by a deterministic source-ID validation layer. This is scheduled for the later global tool-calling/refactoring pass.
 
-The output demonstrated that the agent could combine the retrieved activity data with the traveler's preferences and produce structured recommendations.
+### TravelState Integration
 
----
-
-### Activity Agent and TravelState
-
-The Activity Agent uses the existing shared `TravelState`.
-
-Relevant inputs include:
+The Activity Agent reads:
 
     destination
+    travel_dates
     duration
     travelers
     budget
     preferences
 
-The Activity Agent produces:
+and writes:
 
-    activities
+    state["activities"]
 
-The state now contains:
+The state progression is:
 
     TravelState
         |
@@ -2333,308 +1945,139 @@ The state now contains:
         ├── stay_options
         └── activities
 
-This provides a consistent communication mechanism between agents.
-
----
-
 ### LangGraph Integration
 
-The Activity Agent was added as a new node in:
+The Activity Agent is registered in:
 
     src/graph/travel_graph.py
 
-The graph now contains:
+The current graph contains:
 
     graph.add_node("destination", destination_agent)
     graph.add_node("stay", stay_agent)
     graph.add_node("activity", activity_agent)
+    graph.add_node("weather", weather_agent)
+    graph.add_node("food", food_agent)
 
-The execution order was updated to:
+The current execution order is:
 
     graph.add_edge(START, "destination")
     graph.add_edge("destination", "stay")
     graph.add_edge("stay", "activity")
-    graph.add_edge("activity", END)
+    graph.add_edge("activity", "weather")
+    graph.add_edge("weather", "food")
+    graph.add_edge("food", END)
 
-The resulting workflow is:
+Therefore:
 
     START
-      |
-      v
+      ↓
     Destination Agent
-      |
-      v
+      ↓
     Stay Agent
-      |
-      v
+      ↓
     Activity Agent
-      |
-      v
+      ↓
+    Weather Agent
+      ↓
+    Food Agent
+      ↓
     END
 
----
+### Full Current Multi-Agent Architecture
 
-### Complete Multi-Agent Progression
+The current specialist-agent layer is:
 
-The project has now progressed from one agent to three specialized agents.
-
-#### Destination Agent
-
-    TravelState
-         |
-         v
     Destination Agent
-         |
-         v
-    Gemini
-         |
-         v
+        ↓
+    Tavily
+        ↓
     DestinationAnalysis
-         |
-         v
-    destination_data
 
-#### Stay Agent
-
-    TravelState
-         |
-         v
     Stay Agent
-         |
-         v
-    Gemini
-         |
-         v
-    Tool Calling
-         |
-         v
-    Accommodation Tool
-         |
-         v
-    Accommodation Data
-         |
-         v
-    Structured Output
-         |
-         v
+        ↓
+    SerpApi Google Hotels
+        ↓
     StayAnalysis
-         |
-         v
-    stay_options
 
-#### Activity Agent
-
-    TravelState
-         |
-         v
     Activity Agent
-         |
-         v
-    Gemini
-         |
-         v
-    Tool Calling
-         |
-         v
-    Activity Search Tool
-         |
-         v
-    Activity Data
-         |
-         v
-    Structured Output
-         |
-         v
+        ↓
+    SerpApi Google Maps
+        ↓
     ActivityAnalysis
-         |
-         v
-    activities
 
----
+    Weather Agent
+        ↓
+    WeatherAPI.com
+        ↓
+    WeatherAnalysis
 
-### Full Current Graph
+    Food Agent
+        ↓
+    SerpApi Google Maps
+        ↓
+    FoodAnalysis
 
-The current travel planning graph is:
+All outputs are stored in the shared `TravelState`.
 
-                         START
-                           |
-                           v
-                  Destination Agent
-                           |
-                           v
-                     Stay Agent
-                           |
-                           v
-                   Activity Agent
-                           |
-                           v
-                          END
+### Current Automated Test Result
 
-The three agents communicate through the shared `TravelState`.
-
----
-
-### Activity Agent Test Coverage
-
-The existing graph test was extended to verify the Activity Agent output.
-
-The test now verifies:
-
-    result["activities"]["recommended_activities"]
-
-    result["activities"]["activities_by_category"]
-
-    result["activities"]["budget_assessment"]
-
-    result["activities"]["activity_recommendation"]
-
-The complete test suite was executed using:
+The current automated suite was executed using:
 
     python -m pytest
 
 Result:
 
-    6 passed, 1 warning
+    12 passed, 1 warning
 
-The warning originates from the installed Google GenAI dependency and is a deprecation warning rather than a failure in the project code.
+The warning is:
 
----
+    DeprecationWarning:
+    '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+
+It originates from the installed Google GenAI dependency and is not currently a project-code failure.
+
+The Activity tool and Activity Agent have also been manually validated through real API/LLM execution.
 
 ### Refactoring Decision
 
-The Activity Agent and Stay Agent currently contain similar tool-calling patterns.
+The Activity Agent uses the same explicit tool-calling pattern as other tool-using agents.
 
-Both agents perform:
+The recurring Google GenAI Automatic Function Calling warning is also present during direct Activity Agent execution.
 
-    Build Prompt
-        |
-        v
-    Bind Tool
-        |
-        v
-    Invoke LLM
-        |
-        v
-    Execute Tool
-        |
-        v
-    Create ToolMessage
-        |
-        v
-    Structured Output
+These concerns are being treated as cross-cutting issues.
 
-A reusable abstraction could eventually reduce this duplication.
+A global tool-calling/refactoring pass will later evaluate:
 
-However, only two tool-using agents currently exist.
+- Reusable tool execution helpers
+- More deterministic tool-result grounding
+- Error handling
+- Automatic Function Calling usage
+- Shared agent utilities
 
-Creating a generic abstraction at this stage would introduce additional complexity without enough evidence that the abstraction is necessary.
-
-Therefore, the current implementation intentionally keeps the logic explicit.
-
-A reusable helper can be introduced later when more tool-using agents such as Food, Weather, or other specialized agents are implemented.
-
-This avoids premature abstraction while keeping the architecture easy to understand.
-
----
+The current implementation intentionally avoids premature abstraction.
 
 ### Current Implementation Status
-
-The Activity Agent implementation is complete for the current development stage.
 
 Completed:
 
 - Activity Pydantic schemas
-- Activity Search Tool
-- Activity Agent
+- Real SerpApi Google Maps activity search
+- Activity data normalization
 - Gemini tool calling
+- Grounding-oriented Activity prompt
 - Structured ActivityAnalysis output
 - TravelState integration
 - LangGraph integration
-- Activity tool testing
-- Activity agent testing
-- Full graph testing
+- Real API testing
+- Direct Activity Agent testing
 - Implementation documentation
 
-Current architecture:
+The Activity Agent is functionally complete for the current development stage.
 
-    START
-      |
-      v
-    Destination Agent
-      |
-      v
-    Stay Agent
-      |
-      v
-    Activity Agent
-      |
-      v
-    END
-
-The Activity Agent currently uses controlled activity data.
-
-A real external activity data source will be introduced later as the project progresses toward more realistic travel planning.
+The remaining improvement is stronger deterministic grounding and dedicated automated tests, which can be addressed during the later refactoring/testing pass.
 
 ---
-
-### Next Planned Features
-
-The next stages of the project can extend the graph with additional specialized agents and capabilities.
-
-Planned future agents include:
-
-    Weather Agent
-    Food Agent
-    Itinerary Agent
-
-Future engineering improvements include:
-
-    Real external APIs
-    Parallel workflows
-    Conditional workflows
-    MCP integration
-    Persistence
-    Error handling
-    FastAPI integration
-    Streamlit frontend
-    Testing improvements
-    Docker
-    CI/CD
-
-These features will be implemented progressively rather than introduced all at once.
-
----
-
-### Implementation Conclusion
-
-The Activity Agent extends the AI Travel Planner from a two-agent workflow to a three-agent workflow.
-
-The current architecture demonstrates:
-
-    Specialized Agents
-          +
-    Shared State
-          +
-    Tool Calling
-          +
-    Structured Output
-          +
-    LangGraph Orchestration
-
-The Activity Agent also establishes an important foundation for the future Itinerary Agent.
-
-The future Itinerary Agent will be able to consume:
-
-    destination_data
-          +
-    stay_options
-          +
-    activities
-          |
-          v
-    Day-by-Day Travel Itinerary
-
-This makes the Activity Agent an important intermediate component in the overall multi-agent travel planning system.
 
 ## Weather Agent Implementation
 
@@ -3671,15 +3114,17 @@ The current core implementation contains five specialist research agents.
 - Travel date parsing
 - Accommodation response normalization
 - Activity Agent
-- Controlled activity search tool
+- SerpApi Google Maps activity and attraction integration
+- Activity response normalization
 - Weather Agent
 - WeatherAPI.com integration
 - Food Agent
-- SerpApi Google Maps integration
+- SerpApi Google Maps restaurant integration
 - Restaurant response normalization
 - Gemini tool calling
-- Automated testing
-- Real API testing for Destination, Stay, Weather, and Food
+- Real API testing for Destination, Stay, Activity, Weather, and Food
+- Current automated test suite with 12 passing tests
+- Research and implementation documentation
 
 ### Current Sequential Workflow
 
@@ -3705,13 +3150,14 @@ The system can currently:
 - Maintain shared travel state.
 - Research destinations using real web search.
 - Search real accommodation options.
-- Search real restaurant options.
+- Search real activities and attractions.
 - Retrieve real weather forecasts.
-- Use controlled activity data.
-- Allow Gemini to call external tools.
+- Search real restaurant options.
+- Use Gemini to reason over retrieved information.
+- Call external tools from specialist agents.
 - Produce structured Pydantic analysis.
 - Execute multiple specialist agents through LangGraph.
-- Run automated tests across the implemented components.
+- Run the current automated test suite.
 
 ### Pending Core Features
 
@@ -3728,8 +3174,10 @@ The following major features are not yet implemented:
 - MCP integration
 - Persistence
 - Global tool-calling refactor
+- Deterministic tool-result grounding
 - Centralized error handling
 - LLM provider abstraction
+- Dedicated Activity automated tests
 - Docker
 - GitHub Actions
 - Deployment
@@ -3748,7 +3196,7 @@ Examples:
       ↓
     Destination Research
       ↓
-    Research Completion
+    Parallel Research Completion
       ↓
     Food
       ↓
@@ -3764,15 +3212,18 @@ Stay, Activity, and Weather research can execute independently after destination
 
     Destination Agent
            |
-      +----+----+----+
-      |    |    |    |
-      v    v    v    v
-    Stay Activity Weather
-    Agent Agent   Agent
-      |    |       |
-      +----+-------+
+       +---+---+---+
+       |   |   |   |
+       v   v   v
+     Stay Activity Weather
+     Agent Agent   Agent
+       |   |   |
+       +---+---+
            |
        Parallel Join
+           |
+           v
+       Food Agent
 
 #### Conditional
 
@@ -3782,14 +3233,15 @@ The validator will decide whether the generated itinerary is acceptable.
         |
         v
     Validator
-       /     Valid Invalid
-      |      |
-      |      v
-      |   Refine
-      |      |
-      |      └──→ Validator
-      |
-      v
+       / \
+   Valid Invalid
+     |      |
+     |      v
+     |   Refine
+     |      |
+     |      └──→ Validator
+     |
+     v
     Final Response
 
 Conditional routing may also be used for budget or weather-related decisions when useful.
@@ -3814,29 +3266,29 @@ An invalid itinerary will be sent back for refinement.
       Valid
          |
          v
-    Continue
+       Continue
 
 A maximum iteration limit will be used to prevent an endless refinement loop.
 
 ### Final Target Architecture
 
-                         USER
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │   FastAPI   │
-                    └──────┬──────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │  LangGraph  │
-                    │ Orchestrator│
-                    └──────┬──────┘
-                           │
-                           ▼
+                          USER
+                            │
+                            ▼
+                     ┌─────────────┐
+                     │   FastAPI   │
+                     └──────┬──────┘
+                            │
+                            ▼
+                     ┌─────────────┐
+                     │  LangGraph  │
+                     │ Orchestrator│
+                     └──────┬──────┘
+                            │
+                            ▼
                  ┌───────────────────┐
                  │ Destination Agent │
-                 │ + Research Tool   │
+                 │ + Tavily Research │
                  └─────────┬─────────┘
                            │
                            ▼
@@ -3847,12 +3299,16 @@ A maximum iteration limit will be used to prevent an endless refinement loop.
               ▼            ▼            ▼
           Stay Agent   Activity Agent  Weather Agent
               │            │            │
+              │       SerpApi Maps      │
+              │            │            │
               └────────────┼────────────┘
                            │
                      PARALLEL JOIN
                            │
                            ▼
                       Food Agent
+                           │
+                     SerpApi Maps
                            │
                            ▼
                  ┌──────────────────┐
