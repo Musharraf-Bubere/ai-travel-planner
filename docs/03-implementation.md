@@ -22,7 +22,17 @@ Only functionality that has actually been implemented is documented here.
 
 ## 2. Current Implementation
 
-The current system follows this flow:
+The current implementation contains five specialist travel agents:
+
+- Destination Agent
+- Stay Agent
+- Activity Agent
+- Weather Agent
+- Food Agent
+
+The current workflow is sequential while the parallel, conditional, and iterative workflow stages are being developed.
+
+Current implemented flow:
 
     User Input
         ↓
@@ -32,13 +42,27 @@ The current system follows this flow:
         ↓
     Destination Agent
         ↓
-    Gemini 3.5 Flash-Lite
+    Stay Agent
         ↓
-    Destination Analysis
+    Activity Agent
+        ↓
+    Weather Agent
+        ↓
+    Food Agent
         ↓
     Updated TravelState
 
----
+The Destination Agent uses real Tavily web research.
+
+The Stay Agent uses real SerpApi Google Hotels data.
+
+The Activity Agent currently uses a controlled activity dataset.
+
+The Weather Agent uses real WeatherAPI.com forecast data.
+
+The Food Agent uses real SerpApi Google Maps restaurant data.
+
+The Itinerary Agent and Final Response Agent have not yet been implemented.
 
 ## 3. Project Environment
 
@@ -59,17 +83,27 @@ Example:
 
 ## 4. Dependencies
 
-The initial project dependencies are maintained in `requirements.txt`.
+The project dependencies are maintained in `requirements.txt`.
+
+Current runtime dependencies include:
 
     langgraph
     langchain
     langchain-google-genai
     python-dotenv
     pydantic
+    requests
+    tavily-python
 
 Pytest is also installed in the project environment for automated testing.
 
----
+Current external services:
+
+- Google Gemini for LLM operations
+- Tavily for destination web research
+- SerpApi Google Hotels for accommodation search
+- SerpApi Google Maps for restaurant search
+- WeatherAPI.com for weather forecasts
 
 ## 5. Shared Travel State
 
@@ -91,18 +125,18 @@ Current state structure:
         preferences: list[str]
 
         # Agent outputs
-        destination_data: dict
-        stay_options: list[dict]
-        activities: list[dict]
-        weather: dict
-        restaurants: list[dict]
+        destination_data: DestinationAnalysis
+        stay_options: StayAnalysis
+        activities: ActivityAnalysis
+        weather: WeatherAnalysis
+        restaurants: FoodAnalysis
         itinerary: dict
 
 ### Purpose
 
-`TravelState` provides a common structure for information flowing through the travel-planning workflow.
+`TravelState` provides the common communication layer between specialist agents.
 
-It contains two major categories.
+It contains:
 
 ### User Input
 
@@ -115,62 +149,132 @@ It contains two major categories.
 
 ### Agent Outputs
 
-- Destination information
-- Stay options
-- Activities
-- Weather information
-- Restaurants
+- Destination analysis
+- Accommodation analysis
+- Activity analysis
+- Weather analysis
+- Restaurant analysis
 - Itinerary
 
-Not all fields are populated yet. They have been defined as part of the planned shared state.
+The specialist outputs are defined using Pydantic models.
 
----
+The current agent implementations serialize the Pydantic results with `model_dump()` before storing them in the shared state.
+
+This keeps the agent communication predictable while preserving a common workflow state.
 
 ## 6. LangGraph Workflow
 
-The project uses LangGraph to define the travel-planning workflow.
+The project uses LangGraph to orchestrate the specialist travel agents.
 
 File:
 
     src/graph/travel_graph.py
 
-Current workflow:
+### Current Sequential Workflow
 
     START
       ↓
-    destination
+    Destination Agent
       ↓
-     END
+    Stay Agent
+      ↓
+    Activity Agent
+      ↓
+    Weather Agent
+      ↓
+    Food Agent
+      ↓
+    END
 
-The graph is created using `StateGraph` with `TravelState` as the shared state.
+The current graph is intentionally sequential and acts as the stable baseline for the final hybrid architecture.
 
-Current implementation:
+### Role of LangGraph
 
-    from langgraph.graph import StateGraph, START, END
+LangGraph manages:
 
-    from src.state import TravelState
-    from src.agents.destination_agent import destination_agent
+- Shared `TravelState`
+- Agent nodes
+- Workflow edges
+- Execution order
+- Future parallel execution
+- Future conditional routing
+- Future iterative refinement
 
+### Final Hybrid Workflow
 
-    def build_travel_graph():
-        graph = StateGraph(TravelState)
+The final system is designed to demonstrate all four workflow patterns:
 
-        graph.add_node("destination", destination_agent)
+- Sequential
+- Parallel
+- Conditional
+- Iterative
 
-        graph.add_edge(START, "destination")
-        graph.add_edge("destination", END)
+Target architecture:
 
-        return graph.compile()
+                         USER
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   FastAPI   │
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  LangGraph  │
+                    │ Orchestrator│
+                    └──────┬──────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Destination Agent │
+                 │ + Research Tool   │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                    Destination Data
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+              ▼            ▼            ▼
+          Stay Agent   Activity Agent  Weather Agent
+              │            │            │
+              └────────────┼────────────┘
+                           │
+                     PARALLEL JOIN
+                           │
+                           ▼
+                      Food Agent
+                           │
+                           ▼
+                 ┌──────────────────┐
+                 │ Itinerary Agent  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 Itinerary Validation
+                          │
+                    ┌─────┴─────┐
+                    │           │
+                  Valid       Invalid
+                    │           │
+                    │           ▼
+                    │      Refine Itinerary
+                    │           │
+                    │           └──────► Validator
+                    │
+                    ▼
+              Final Response Agent
+                    │
+                    ▼
+              FINAL TRAVEL PLAN
+                    │
+                    ▼
+                 Streamlit
+                    │
+                    ▼
+                   USER
 
-### Why LangGraph?
-
-LangGraph provides the workflow orchestration layer for the project.
-
-The current graph is intentionally simple and contains one implemented agent.
-
-Additional agents and workflow patterns will be added incrementally.
-
----
+The parallel, conditional, and iterative portions are planned next and are not yet represented by the current graph code.
 
 ## 7. Destination Agent
 
@@ -831,297 +935,344 @@ Not yet implemented:
 
 ## Stay / Hotel Agent Implementation
 
-The Stay Agent is the second agent implemented in the AI Travel Planner.
+The Stay Agent is the second specialist agent implemented in the AI Travel Planner.
 
-Its responsibility is to research accommodation options based on the traveler's destination, budget, duration, number of travelers, and preferences.
+Its responsibility is to research accommodation options using:
+
+- Destination
+- Travel dates
+- Duration
+- Number of travelers
+- Budget
+- Preferences
+
+The current implementation uses real accommodation data from SerpApi Google Hotels.
 
 ### Accommodation Schema
 
 The accommodation data structure is defined in:
 
-`src/schemas/stay.py`
+    src/schemas/stay.py
 
 The `Accommodation` Pydantic model contains:
 
-- `name`
-- `area`
-- `price_per_night`
-- `rating`
-- `description`
+    name
+    area
+    price_per_night
+    rating
+    description
 
-This provides a consistent structure for individual accommodation options.
+The `StayAnalysis` model contains:
 
-### StayAnalysis Schema
-
-The Stay Agent uses the `StayAnalysis` Pydantic model as its structured output.
-
-It contains:
-
-- `recommended_area`
-- `accommodation_options`
-- `budget_assessment`
-- `stay_recommendation`
-
-The relationship is:
-
-    StayAnalysis
-    ├── recommended_area
-    ├── accommodation_options
-    │   └── Accommodation
-    ├── budget_assessment
-    └── stay_recommendation
-
-This ensures that the Stay Agent produces predictable output that can be consumed by the rest of the application.
+    recommended_area
+    accommodation_options
+    budget_assessment
+    stay_recommendation
 
 ### Accommodation Search Tool
 
-The project implements an accommodation search tool in:
+The accommodation search tool is implemented in:
 
-`src/tools/accommodation.py`
+    src/tools/accommodation.py
 
-The tool is exposed using LangChain's tool interface.
-
-Its current interface is conceptually:
+Current interface:
 
     search_accommodations(
         destination,
-        budget
+        travel_dates,
+        duration,
+        travelers,
+        budget,
+        preferences
     )
 
-The current implementation uses sample accommodation data so that the tool-calling architecture can be developed and tested independently of an external hotel provider.
+The tool is exposed using LangChain's `@tool` decorator.
 
-The tool returns information such as:
+### SerpApi Google Hotels Integration
 
-- accommodation name
-- area
-- price per night
-- rating
-- description
+The Stay Agent uses the SerpApi Google Hotels engine:
 
-The tool implementation can later be replaced with a real external travel or accommodation data source without changing the overall Stay Agent design.
+    engine = google_hotels
+
+The request includes:
+
+    q
+    check_in_date
+    check_out_date
+    adults
+    currency
+    gl
+    hl
+    sort_by
+    api_key
+
+The API key is loaded from:
+
+    SERPAPI_API_KEY
+
+The same SerpApi credential can be reused by the Food Agent.
+
+### Travel Date Parsing
+
+The accommodation tool expects:
+
+    YYYY-MM-DD to YYYY-MM-DD
+
+Example:
+
+    2026-10-10 to 2026-10-12
+
+The helper:
+
+    parse_travel_dates(travel_dates)
+
+splits the input into:
+
+    check_in
+    check_out
+
+This keeps date parsing separate from API request construction.
+
+### Accommodation Response Normalization
+
+The SerpApi response is normalized into the application's internal representation:
+
+    {
+        "name": ...,
+        "area": ...,
+        "price_per_night": ...,
+        "rating": ...,
+        "description": ...
+    }
+
+The implementation extracts information from the Google Hotels response including:
+
+- Property name
+- Address
+- Lowest extracted nightly price
+- Overall rating
+- Description
+
+The first ten properties are normalized.
+
+Provider-specific response structures therefore remain inside the tool layer.
+
+### Provider Independence
+
+The Stay Agent depends on:
+
+    search_accommodations()
+
+rather than directly depending on SerpApi.
+
+Architecture:
+
+    Stay Agent
+        ↓
+    Stable Tool Interface
+        ↓
+    Accommodation Provider
+        ↓
+    SerpApi Google Hotels
+
+The provider can therefore be replaced later without changing the Stay Agent's overall design.
 
 ### Gemini Tool Calling
 
-The Stay Agent makes the accommodation search tool available to Gemini using LangChain tool binding.
+The Stay Agent binds the accommodation search tool to Gemini.
 
-Conceptually:
-
-    Gemini
-       |
-       +── search_accommodations()
-       |
-       +── Tool Schema
-
-The model can determine when accommodation information is required and request the tool.
-
-Binding the tool does not execute the Python function. The application is responsible for executing the requested tool call.
-
-### Tool Calling Message Flow
-
-The Stay Agent implements the required conversational sequence:
+The implemented flow is:
 
     HumanMessage
-          |
-          v
-    Gemini / AIMessage
-          |
-          v
-      Tool Call
-          |
-          v
-    Accommodation Tool
-          |
-          v
-      Tool Result
-          |
-          v
-     ToolMessage
-          |
-          v
-        Gemini
-          |
-          v
-     Final Response
+        ↓
+    Gemini
+        ↓
+    AIMessage
+        ↓
+    Tool Call
+        ↓
+    search_accommodations()
+        ↓
+    SerpApi Google Hotels
+        ↓
+    Tool Result
+        ↓
+    ToolMessage
+        ↓
+    Gemini Structured Output
+        ↓
+    StayAnalysis
 
-The original user message, AI tool-call message, and tool result are provided to Gemini in the correct order.
+The application executes the requested tool call and passes the result back to Gemini using `ToolMessage`.
 
-This allows Gemini to use the external tool result when producing the final response.
+### Stay Prompt
 
-### Structured Final Response
+The Stay Agent prompt contains:
 
-After the accommodation tool returns its result, the Stay Agent uses the structured LLM helper with `StayAnalysis`.
+    Destination
+    Travel Dates
+    Duration
+    Travelers
+    Budget
+    Preferences
 
-The flow is:
+Gemini is instructed to evaluate accommodation results based on:
 
-    Accommodation Tool
-            |
-            v
-       Tool Result
-            |
-            v
-      Structured LLM
-            |
-            v
-       StayAnalysis
-            |
-            v
-       model_dump()
-            |
-            v
-       TravelState
+1. Location
+2. Budget
+3. Rating
+4. Traveler preferences
 
-This combines two important Agentic AI capabilities:
+### Structured Output
 
-- tool calling for obtaining external information
-- structured output for producing predictable application data
+After the tool result is received, the agent uses:
 
-### Stay Agent
+    get_structured_llm(StayAnalysis)
 
-The Stay Agent is implemented in:
+The Pydantic result is serialized with:
 
-`src/agents/stay_agent.py`
+    final_response.model_dump()
 
-Its responsibilities are separated into:
+and stored in:
 
-1. Building the accommodation research prompt
-2. Binding the accommodation search tool
-3. Sending the travel request to Gemini
-4. Detecting the requested tool call
-5. Executing the accommodation tool
-6. Returning the tool result to Gemini
-7. Generating structured `StayAnalysis` output
-8. Storing the result in `TravelState`
+    state["stay_options"]
+
+This combines real external data retrieval with structured LLM reasoning.
+
+### Real Accommodation Search Test
+
+The real Google Hotels integration was tested with:
+
+    Destination: Goa, India
+    Travel Dates: 2026-10-10 to 2026-10-12
+    Travelers: 2
+    Budget: 50000
+    Preferences:
+    - beaches
+    - food
+
+The API successfully returned real accommodation results.
+
+Examples included:
+
+    Om Ganesh Naik Guest House
+    om ganesh guest house cliffside
+    OYO Aym Yoga Resort
+    SanRit Hotel
+    Mandala House - Party Hostel
+    Baga Beach Way
+    SUNNY CLIFF BEACH STAY
+    Hotel El - Paso
+    Hippie hostel Anjuna
+    Red Monkeys Restaurant Bar and Hostel
+
+The normalized records contained:
+
+    name
+    area
+    price_per_night
+    rating
+    description
+
+### Stay Agent Test
+
+The complete Stay Agent was executed successfully using the real accommodation search.
+
+Gemini:
+
+1. Received the travel request.
+2. Requested the accommodation search tool.
+3. Executed the SerpApi Google Hotels request.
+4. Received normalized accommodation results.
+5. Produced a structured `StayAnalysis`.
+6. Stored the result in shared state.
+
+The test recommendation identified North Goa, particularly around Anjuna and Baga, as a suitable area for the supplied preferences.
+
+### Automated Testing
+
+Test file:
+
+    tests/test_accommodation_tool.py
+
+The test verifies:
+
+- The tool returns a list.
+- Results are available.
+- `name` exists.
+- `area` exists.
+- `price_per_night` exists.
+- `rating` exists.
+- `description` exists.
+
+The complete test suite after the Stay Agent implementation produced:
+
+    12 passed
+    0 failed
+    1 warning
+
+The warning originates from the Google GenAI dependency and is deferred to a later dependency/refactoring review.
 
 ### TravelState Integration
 
-The shared graph state was updated so that:
+The Stay Agent writes its result to:
 
-    stay_options: StayAnalysis
+    state["stay_options"]
 
-The current state therefore contains typed outputs from both implemented agents:
+The shared state contains the outputs of the specialist agents:
 
-    TravelState
-    ├── destination_data: DestinationAnalysis
-    └── stay_options: StayAnalysis
-
-This creates a clear data contract between agents and the LangGraph workflow.
+    destination_data
+    stay_options
+    activities
+    weather
+    restaurants
+    itinerary
 
 ### LangGraph Integration
 
-The Stay Agent was added as the second node in the travel graph.
-
-The current graph is:
+The current sequential graph is:
 
     START
-      |
-      v
+      ↓
     Destination Agent
-      |
-      v
+      ↓
     Stay Agent
-      |
-      v
+      ↓
+    Activity Agent
+      ↓
+    Weather Agent
+      ↓
+    Food Agent
+      ↓
     END
 
-The Destination Agent executes first, followed by the Stay Agent.
+### Refactoring Decision
 
-Both agents operate on the shared `TravelState`.
+The Stay Agent currently contains explicit tool-calling logic.
 
-### Current Multi-Agent Architecture
+The same pattern exists in the other tool-using agents.
 
-The current implementation can be represented as:
+A reusable tool-calling abstraction will be considered during the global refactoring stage after the remaining specialist agents are implemented.
 
-    User Travel Request
-            |
-            v
-       TravelState
-            |
-            v
-    LangGraph Orchestrator
-            |
-            v
-    Destination Agent
-            |
-            | Structured Output
-            v
-    DestinationAnalysis
-            |
-            v
-        Stay Agent
-            |
-            | Tool Calling
-            v
-    Accommodation Tool
-            |
-            | Tool Result
-            v
-        Gemini
-            |
-            | Structured Output
-            v
-       StayAnalysis
-            |
-            v
-       TravelState
-            |
-            v
-           END
-
-### Testing
-
-The Stay Agent implementation is covered by automated tests.
-
-Current tests include:
-
-- accommodation tool test
-- destination schema test
-- travel graph test
-- LLM connection test
-- TravelState test
-- StayAnalysis schema test
-
-The complete test suite currently passes:
-
-    6 passed
-
-This confirms that the accommodation tool, schemas, Gemini integration, and two-agent LangGraph workflow are functioning together.
+The recurring Gemini Automatic Function Calling warning is also treated as a cross-cutting tool-calling concern rather than a Stay-specific failure.
 
 ### Current Implementation Status
 
 Completed:
 
-- Gemini LLM integration
-- TravelState
-- LangGraph orchestration
-- Destination Agent
-- DestinationAnalysis schema
-- Structured destination output
-- Accommodation search tool
 - Accommodation schema
 - StayAnalysis schema
+- Real SerpApi Google Hotels integration
+- Travel date parsing
+- Accommodation response normalization
 - Gemini tool calling
-- Tool execution flow
-- Structured Stay Agent output
-- Two-agent sequential workflow
+- Structured StayAnalysis output
+- TravelState integration
+- LangGraph integration
+- Real API testing
 - Automated tests
 
-Not yet implemented:
-
-- Activity Agent
-- Weather Agent
-- Food Agent
-- Itinerary Agent
-- Parallel workflows
-- Conditional workflows
-- Real external accommodation API
-- FastAPI
-- Streamlit
-- Persistence
-- MCP
-- LLM provider abstraction
-- Docker
-- GitHub Actions
-- Deployment
+The Stay Agent is functionally complete for the current development stage.
 
 ## Activity Agent Research
 
@@ -2896,50 +3047,54 @@ This will allow the complete graph to carry destination, accommodation, activity
 
 ### 8.1 Purpose
 
-The Food Agent is responsible for researching restaurant options for the traveler's destination.
+The Food Agent is responsible for finding and evaluating restaurant options for the traveler's destination.
 
 Its responsibilities are:
 
-1. Search real restaurant data
-2. Evaluate restaurants based on traveler requirements
-3. Consider budget and preferences
-4. Analyze restaurant ratings and categories
-5. Produce structured restaurant recommendations
-6. Store the result in the shared `TravelState`
+1. Search real restaurant data.
+2. Evaluate restaurants based on traveler requirements.
+3. Consider budget and preferences.
+4. Analyze ratings and categories.
+5. Produce structured restaurant recommendations.
+6. Store the result in shared `TravelState`.
 
-The Food Agent follows the same architecture used by the Stay, Activity, and Weather Agents:
+The implemented flow is:
 
     TravelState
         ↓
     Food Agent
         ↓
-    Gemini LLM
+    Gemini
         ↓
     Restaurant Search Tool
         ↓
-    SerpApi
+    SerpApi Google Maps
         ↓
-    Google Maps restaurant data
+    Restaurant Results
         ↓
     ToolMessage
         ↓
-    Gemini LLM
+    Gemini Structured Output
         ↓
     FoodAnalysis
         ↓
     TravelState
 
----
-
 ### 8.2 Restaurant API Selection
 
 Foursquare Places API was initially considered for restaurant discovery.
 
-During implementation, the Foursquare API returned HTTP 429 because the developer account had no API credits remaining.
+During implementation, the available Foursquare account returned HTTP 429 because the account had no API credits remaining.
 
-Instead of introducing a paid dependency, SerpApi Google Maps was selected.
+SerpApi Google Maps was therefore selected.
 
-SerpApi provides structured local search results containing useful restaurant information such as:
+The existing SerpApi key is reused for restaurant search.
+
+The selected engine is:
+
+    engine = google_maps
+
+The returned local results provide useful fields including:
 
 - Restaurant name
 - Address
@@ -2948,27 +3103,15 @@ SerpApi provides structured local search results containing useful restaurant in
 - Distance
 - Description
 
-This information is suitable for the Food Agent's recommendation workflow.
-
-The project uses the SerpApi Google Maps engine:
-
-    engine = google_maps
-
----
-
 ### 8.3 Environment Configuration
 
-The SerpApi API key is stored in the `.env` file.
+The SerpApi API key is stored in:
 
     SERPAPI_API_KEY=...
 
-The API key is loaded through environment variables rather than being hardcoded in the source code.
+The key is loaded through environment variables.
 
-The `.env` file is excluded from Git using `.gitignore`.
-
-This prevents the secret API key from being committed to the repository.
-
----
+The `.env` file is excluded from Git.
 
 ### 8.4 Restaurant Search Tool
 
@@ -2976,54 +3119,30 @@ The restaurant search functionality is implemented in:
 
     src/tools/food.py
 
-The tool is exposed through LangChain's `@tool` decorator:
+Current interface:
 
-    @tool
-    def search_restaurants(...)
+    search_restaurants(
+        destination: str,
+        price_level: int = 2,
+        limit: int = 5
+    )
 
-The tool accepts:
+The tool sends a request to the SerpApi search endpoint using:
 
-- `destination`
-- `price_level`
-- `limit`
+    engine = google_maps
 
-The tool then sends a request to the SerpApi search endpoint.
+The request includes:
 
-The basic request flow is:
-
-    search_restaurants()
-            ↓
-    SERPAPI_API_KEY
-            ↓
-    SerpApi Search API
-            ↓
-    Google Maps
-            ↓
-    Local restaurant results
-
-The tool normalizes the external API response into a consistent Python structure.
-
-Example normalized result:
-
-    {
-        "name": "The Bombay Canteen",
-        "location": "Lower Parel, Mumbai",
-        "category": "Modern Indian restaurant",
-        "price_level": 2,
-        "rating": 4.5,
-        "distance": "5 km",
-        "description": "Fashionable cafe and bar offering innovative Indian cuisine."
-    }
-
----
+    q = "restaurants in <destination>"
+    type = "search"
+    limit = limit
+    api_key = SERPAPI_API_KEY
 
 ### 8.5 Restaurant Data Normalization
 
-External APIs may return data using different field names and structures.
+The Food Tool converts the external response into the application's internal restaurant representation.
 
-The Food Tool converts the external SerpApi response into the application's internal restaurant representation.
-
-The mapping includes:
+Mapping:
 
     SerpApi field          Application field
     ------------------------------------------
@@ -3034,55 +3153,47 @@ The mapping includes:
     distance               distance
     description            description
 
-The `price_level` field is currently passed through the tool input.
+The tool passes through the requested `price_level`.
 
-Distance is represented as a string because Google Maps results can return human-readable values such as:
+Distance is represented as a string because Google Maps results can return values such as:
 
-    "5 km"
-    "850 m"
+    5 km
+    850 m
 
-If distance information is unavailable, the tool uses:
+If distance is unavailable:
 
-    "Not available"
-
-This prevents an unavailable distance from incorrectly being represented as `0.0`.
-
----
+    Not available
 
 ### 8.6 Food Schema
 
 The Food Agent uses Pydantic structured output.
 
-The schema is implemented in:
+File:
 
     src/schemas/food.py
 
-The main models are:
+Models:
 
     Restaurant
         ↓
     FoodAnalysis
 
-The `Restaurant` model contains:
+`Restaurant` contains:
 
-- `name`
-- `location`
-- `category`
-- `price_level`
-- `rating`
-- `distance`
-- `description`
+    name
+    location
+    category
+    price_level
+    rating
+    distance
+    description
 
-The `FoodAnalysis` model contains:
+`FoodAnalysis` contains:
 
-- `recommended_restaurants`
-- `restaurants_by_category`
-- `budget_assessment`
-- `food_recommendation`
-
-This ensures that the Food Agent produces predictable structured data rather than an unstructured text response.
-
----
+    recommended_restaurants
+    restaurants_by_category
+    budget_assessment
+    food_recommendation
 
 ### 8.7 Food Agent
 
@@ -3090,39 +3201,35 @@ The Food Agent is implemented in:
 
     src/agents/food_agent.py
 
-The Food Agent follows the project's established tool-calling pattern.
-
 The workflow is:
 
     TravelState
         ↓
-    Build food research prompt
+    Build Food Prompt
         ↓
-    Gemini with search_restaurants tool
+    Gemini with search_restaurants
         ↓
     AIMessage containing tool call
         ↓
     Execute search_restaurants
         ↓
+    SerpApi Google Maps
+        ↓
     ToolMessage
         ↓
-    Structured Gemini output
+    Structured Gemini Output
         ↓
     FoodAnalysis
         ↓
     state["restaurants"]
 
-The LLM is responsible for deciding when restaurant search is required and for interpreting the returned restaurant information.
+The LLM is responsible for deciding when restaurant search is required and interpreting the returned restaurant information.
 
-The Python tool is responsible for making the actual external API request.
-
-This separation keeps external API access inside tools instead of coupling API logic directly to the LLM.
-
----
+The Python tool is responsible for the external API request.
 
 ### 8.8 Food Agent Prompt
 
-The Food Agent prompt provides the travel context:
+The prompt provides:
 
     Destination
     Duration
@@ -3130,20 +3237,16 @@ The Food Agent prompt provides the travel context:
     Budget
     Preferences
 
-The LLM is instructed to evaluate restaurants based on:
+Gemini evaluates restaurant candidates based on:
 
 1. Traveler preferences
 2. Budget
-3. Restaurant rating
+3. Rating
 4. Cuisine/category
 5. Location
 6. Overall suitability
 
-The goal is not simply to return the highest-rated restaurants.
-
-The agent should select restaurants that are practical and suitable for the specific travel request.
-
----
+The goal is to recommend practical restaurants for the specific travel request rather than simply returning the highest-rated results.
 
 ### 8.9 Structured Output
 
@@ -3151,49 +3254,35 @@ The Food Agent uses:
 
     get_structured_llm(FoodAnalysis)
 
-This ensures the final response follows the `FoodAnalysis` Pydantic schema.
+The result is serialized with:
 
-The structured result is then stored in the shared state:
+    final_response.model_dump()
 
-    state["restaurants"] = final_response.model_dump()
+and stored in:
 
-This allows downstream graph nodes to consume restaurant recommendations without depending on free-form LLM text.
+    state["restaurants"]
 
----
+This gives downstream agents predictable restaurant data.
 
 ### 8.10 Shared State Integration
 
-The shared `TravelState` contains:
-
-    restaurants: list[dict]
-
-The Food Agent writes its final restaurant analysis into:
+The Food Agent writes to:
 
     TravelState["restaurants"]
 
-The state therefore becomes the communication mechanism between agents.
-
-The Food Agent does not need to directly communicate with the Stay, Activity, or Weather Agent.
-
-Instead:
+Agents communicate through shared state rather than directly calling one another.
 
     Agent
       ↓
-    Shared State
+    Shared TravelState
       ↓
     Next Agent
 
-This maintains loose coupling between agents.
-
----
+This maintains loose coupling.
 
 ### 8.11 LangGraph Integration
 
-The Food Agent was added as a node in:
-
-    src/graph/travel_graph.py
-
-The current graph flow is:
+The current sequential graph is:
 
     START
       ↓
@@ -3209,86 +3298,52 @@ The current graph flow is:
       ↓
     END
 
-The Food Agent is therefore the latest research agent in the current sequential travel-planning workflow.
+The Food Agent is the latest completed research agent.
 
----
+### 8.12 Testing
 
-### 8.12 Food Agent Testing
-
-The Food Agent was tested at multiple levels.
-
-#### Schema Test
-
-File:
+The Food Agent is covered by:
 
     tests/test_food_schema.py
-
-The test verifies that:
-
-- `Restaurant` can be created
-- `FoodAnalysis` can be created
-- Restaurant information is stored correctly
-- Category grouping works correctly
-
-#### Tool Test
-
-File:
-
     tests/test_food_tool.py
-
-The test verifies that:
-
-- `search_restaurants` is correctly registered as a LangChain tool
-- The tool has the expected name and description
-
-#### Food Agent Test
-
-File:
-
     tests/test_food_agent.py
-
-The integration test verifies that:
-
-- The Food Agent executes successfully
-- Gemini can call the restaurant search tool
-- SerpApi returns restaurant data
-- The final structured restaurant analysis is stored in state
-
-#### Graph Test
-
-File:
-
     tests/test_graph.py
 
-The graph test verifies that the Food Agent is registered as a LangGraph node.
+Testing covers:
 
----
+- Pydantic schema creation
+- Restaurant schema creation
+- Tool registration
+- Food Agent execution
+- SerpApi restaurant retrieval
+- Structured state output
+- Graph integration
 
 ### 8.13 Real API Test
 
-A real SerpApi request was successfully executed using:
+A real SerpApi Google Maps request was successfully executed using:
 
-    destination = "Mumbai"
-    price_level = 2
-    limit = 5
+    Destination: Mumbai
+    Price level: 2
+    Limit: 5
 
-The API returned real restaurant results.
+The API returned real restaurant data.
 
-Example results included:
+The normalized results included fields such as:
 
-    The Bombay Canteen
-    Saffron
-    By The Mekong
+    name
+    location
+    category
+    price_level
+    rating
+    distance
+    description
 
-The response included restaurant names, locations, categories, ratings, distances, and descriptions.
-
-The complete Food Agent was also executed through the LangGraph workflow successfully.
-
----
+The complete Food Agent was also executed successfully through the LangGraph workflow.
 
 ### 8.14 Test Results
 
-After integrating the Food Agent, the complete test suite produced:
+After Food Agent integration:
 
     12 passed
     0 failed
@@ -3299,21 +3354,18 @@ The warning originates from the external `google.genai` dependency:
     DeprecationWarning:
     '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
 
-This warning is currently outside the project's application code and is therefore deferred for a later dependency/refactoring review.
-
----
+This is currently outside the project's application code and is deferred to a later dependency/refactoring review.
 
 ### 8.15 Current Status
 
 The Food Agent implementation is complete.
 
-Completed components:
+Completed:
 
-- Food research
 - Food schema
 - Restaurant search tool
-- SerpApi integration
-- Restaurant data normalization
+- SerpApi Google Maps integration
+- Restaurant response normalization
 - Gemini tool calling
 - Structured FoodAnalysis
 - Shared state integration
@@ -3336,7 +3388,7 @@ Current workflow:
             ↓
     END
 
-The next major feature will extend the travel planning workflow beyond individual research agents toward itinerary generation and final travel-plan composition.
+The next major feature is itinerary generation.
 
 ## Destination Research Agent Implementation
 
@@ -3344,7 +3396,9 @@ The next major feature will extend the travel planning workflow beyond individua
 
 The Destination Research Agent is responsible for researching the requested destination using real web information and generating a structured destination analysis tailored to the traveler's requirements.
 
-The original Destination Agent used Gemini alone. It has now been upgraded to use Tavily for external web research.
+The original Destination Agent used Gemini alone.
+
+It has now been upgraded to use Tavily for external web research.
 
 ### Architecture
 
@@ -3377,11 +3431,11 @@ The implemented flow is:
 
 The Tavily Python client is used to communicate with the Tavily Search API.
 
-The Tavily API key is stored in the environment file:
+The API key is stored in:
 
     TAVILY_API_KEY=...
 
-The `.env` file is excluded from Git using `.gitignore`.
+The `.env` file is excluded from Git.
 
 ### Destination Research Tool
 
@@ -3389,19 +3443,19 @@ File:
 
     src/tools/destination.py
 
-The `search_destination` function is implemented as a LangChain tool.
+The `search_destination` function is exposed as a LangChain tool.
 
 Its responsibilities are:
 
-1. Read the Tavily API key from the environment.
+1. Read `TAVILY_API_KEY`.
 2. Create a Tavily client.
 3. Build a destination-focused search query.
-4. Include the traveler's preferences in the query.
-5. Search the web using Tavily.
-6. Retrieve the most relevant results.
-7. Normalize the results into a simple list of dictionaries.
+4. Include traveler preferences.
+5. Search the web.
+6. Retrieve relevant results.
+7. Normalize the results.
 
-The tool returns:
+The normalized result structure is:
 
     [
         {
@@ -3411,47 +3465,43 @@ The tool returns:
         }
     ]
 
-The tool does not generate the final travel recommendations. Its responsibility is external information retrieval.
+The tool performs information retrieval; it does not generate the final recommendation.
 
 ### Search Configuration
 
-The initial implementation uses:
+The implementation uses:
 
-    search_depth="advanced"
-    max_results=5
+    search_depth = "advanced"
+    max_results = 5
 
-This provides a small set of detailed research results for the Destination Agent.
+This keeps the amount of retrieved research manageable for the LLM.
 
-### Destination Research Query
+### Destination Query
 
-The tool builds a query using the destination and user preferences.
-
-Conceptually:
+The query combines:
 
     destination
-        +
-    travel preferences
-        ↓
-    destination travel research query
-        ↓
-    Tavily Search
+    +
+    traveler preferences
+    +
+    travel research requirements
 
-For example, a request for:
+For example:
 
     Destination: Goa
     Preferences: beaches, adventure, food
 
-results in a research query focused on Goa travel information, recommended areas, attractions, travel considerations, and recommendations related to those preferences.
+The resulting search focuses on destination travel information, recommended areas, attractions, travel considerations, and preference-specific recommendations.
 
-### Destination Agent
+### Destination Agent Tool Calling
 
-File:
+The Destination Agent binds:
 
-    src/agents/destination_agent.py
+    search_destination
 
-The Destination Agent uses Gemini with the `search_destination` tool.
+to Gemini.
 
-The agent follows the standard tool-calling pattern used by the other specialist agents:
+The flow is:
 
     HumanMessage
          |
@@ -3468,7 +3518,7 @@ The agent follows the standard tool-calling pattern used by the other specialist
        Tavily
          |
          v
-    Tool Result
+     Tool Result
          |
          v
        Gemini
@@ -3476,90 +3526,47 @@ The agent follows the standard tool-calling pattern used by the other specialist
          v
     Structured Output
 
-### Tool Calling
-
-The Destination Agent binds the research tool to Gemini:
-
-    llm_with_tools = llm.bind_tools(
-        [search_destination]
-    )
-
-Gemini can then request the destination research tool when external information is required.
-
-The returned tool call is executed using:
-
-    search_destination.invoke(
-        tool_call["args"]
-    )
-
-The tool result is then converted into a `ToolMessage` and passed back to Gemini.
+The application executes the requested tool call and passes the result back to Gemini using a `ToolMessage`.
 
 ### Structured Output
 
-After receiving the research results, the Destination Agent uses the existing `DestinationAnalysis` Pydantic schema.
-
-The schema contains:
+The final response uses:
 
     DestinationAnalysis
-    ├── overview
-    ├── recommended_areas
-    ├── travel_considerations
-    └── preference_suggestions
 
-Gemini uses the retrieved research to populate these fields.
+with:
 
-The final Pydantic model is converted into a dictionary using:
+    overview
+    recommended_areas
+    travel_considerations
+    preference_suggestions
+
+The result is converted using:
 
     final_response.model_dump()
 
-and stored in the shared travel state.
-
-### Shared State Integration
-
-The resulting destination analysis is stored in:
+and stored in:
 
     state["destination_data"]
-
-The relevant state flow is:
-
-    User Input
-         |
-         v
-    Destination Agent
-         |
-         v
-    DestinationAnalysis
-         |
-         v
-    state["destination_data"]
-
-This allows downstream agents to access destination research.
 
 ### Real API Testing
 
-The Destination Research Tool was first tested independently using a real Tavily API request.
+The destination search tool was tested using a real Tavily request.
 
-Example test:
+Example:
 
-    search_destination.invoke(
-        {
-            "destination": "Goa",
-            "preferences": [
-                "beaches",
-                "adventure"
-            ]
-        }
-    )
+    Destination: Goa
+    Preferences:
+    - beaches
+    - adventure
 
-The test successfully returned multiple web research results containing:
+The tool successfully returned multiple web results containing:
 
 - Title
 - URL
 - Content
 
-### Real Destination Agent Testing
-
-The complete Destination Agent was then tested with:
+The complete Destination Agent was then tested using:
 
     Destination: Goa
     Duration: 5 days
@@ -3573,93 +3580,367 @@ The complete Destination Agent was then tested with:
 The agent successfully:
 
 1. Received the travel requirements.
-2. Called the Tavily research tool.
+2. Called the Tavily search tool.
 3. Retrieved real web information.
-4. Passed the research result back to Gemini.
-5. Generated a structured destination analysis.
+4. Passed the research back to Gemini.
+5. Generated structured `DestinationAnalysis`.
 6. Stored the result in `destination_data`.
 
 ### LangGraph Integration
 
-The Destination Agent is already registered as the first specialist agent in the travel graph.
+The Destination Agent is registered as the first specialist agent.
 
-The current graph begins with:
+Current sequential graph:
 
     START
-      |
-      v
+      ↓
     Destination Agent
-      |
-      v
+      ↓
     Stay Agent
-      |
-      v
+      ↓
     Activity Agent
-      |
-      v
+      ↓
     Weather Agent
-      |
-      v
+      ↓
     Food Agent
-      |
-      v
+      ↓
     END
 
-The Destination Agent therefore provides destination research before the downstream travel-planning agents execute.
+The Destination Agent therefore provides destination research before the downstream specialist agents execute.
 
 ### LangGraph Integration Test
 
-The Destination Agent was tested through the actual compiled LangGraph rather than only as an isolated function.
+The Destination Agent was tested through the compiled LangGraph.
 
-The graph successfully executed and returned:
+The graph successfully returned:
 
     result["destination_data"]
 
-with a valid structured destination analysis.
+with valid structured destination analysis.
 
-This confirms that the real Tavily-powered Destination Agent works inside the existing travel workflow.
+This confirms that the Tavily-powered Destination Agent works inside the existing travel workflow.
 
 ### Error Handling
 
-The Destination Research Tool currently validates the presence of:
+The Destination Research Tool validates that:
 
     TAVILY_API_KEY
 
+exists before creating the Tavily client.
+
 If the key is missing, the tool raises a clear configuration error.
 
-The Tavily request is handled through the Tavily Python client.
-
-More advanced retry, fallback, and centralized error handling will be implemented later as part of the project's engineering and productionization phases.
+More advanced retry, fallback, and centralized error handling remain future engineering work.
 
 ### Current Status
 
 The Destination Research Agent is functionally complete.
 
+Completed:
+
+- Tavily destination research
+- Destination research tool
+- Gemini tool calling
+- Structured DestinationAnalysis
+- TravelState integration
+- LangGraph integration
+- Real API testing
+- Agent testing
+- Documentation
+
+The recurring Gemini Automatic Function Calling warning is deferred to the global tool-calling refactor.
+
+---
+
+## End-to-End Implementation Status
+
+The current core implementation contains five specialist research agents.
+
+### Completed
+
+- Python project environment
+- Gemini LLM service
+- Environment-based configuration
+- Shared TravelState
+- LangGraph sequential orchestration
+- Pydantic structured output
+- Destination Agent
+- Tavily destination research
+- Stay Agent
+- SerpApi Google Hotels integration
+- Travel date parsing
+- Accommodation response normalization
+- Activity Agent
+- Controlled activity search tool
+- Weather Agent
+- WeatherAPI.com integration
+- Food Agent
+- SerpApi Google Maps integration
+- Restaurant response normalization
+- Gemini tool calling
+- Automated testing
+- Real API testing for Destination, Stay, Weather, and Food
+
+### Current Sequential Workflow
+
+    START
+      ↓
     Destination Agent
-        |
-        +-- Gemini
-        |
-        +-- Tavily Search Tool
-        |
-        +-- Real Web Research
-        |
-        +-- Pydantic Structured Output
-        |
-        +-- TravelState Integration
-        |
-        +-- LangGraph Integration
-        |
-        +-- Real API Testing
+      ↓
+    Stay Agent
+      ↓
+    Activity Agent
+      ↓
+    Weather Agent
+      ↓
+    Food Agent
+      ↓
+    END
 
-Status:
+### Current Core Capabilities
 
-    Understand        -> Complete
-    Research          -> Complete
-    Document Research -> Complete
-    Learn Concept     -> Complete
-    Implement         -> Complete
-    Test              -> Complete
-    Refactor          -> Deferred to global tool-calling refactor
-    Document           -> Complete
+The system can currently:
 
-The recurring Gemini AFC warning observed during tool calling is not treated as a Destination Agent-specific failure. It will be addressed later as a cross-cutting tool-calling refactor across the specialist agents.
+- Accept structured travel requirements.
+- Maintain shared travel state.
+- Research destinations using real web search.
+- Search real accommodation options.
+- Search real restaurant options.
+- Retrieve real weather forecasts.
+- Use controlled activity data.
+- Allow Gemini to call external tools.
+- Produce structured Pydantic analysis.
+- Execute multiple specialist agents through LangGraph.
+- Run automated tests across the implemented components.
+
+### Pending Core Features
+
+The following major features are not yet implemented:
+
+- Itinerary Agent
+- Final Response Agent
+- Itinerary validation
+- Parallel workflow
+- Conditional workflow
+- Iterative workflow
+- FastAPI backend
+- Streamlit frontend
+- MCP integration
+- Persistence
+- Global tool-calling refactor
+- Centralized error handling
+- LLM provider abstraction
+- Docker
+- GitHub Actions
+- Deployment
+
+### Final Hybrid Workflow
+
+The final architecture will combine all four workflow patterns.
+
+#### Sequential
+
+Sequential execution will be used where later work depends on earlier results.
+
+Examples:
+
+    User
+      ↓
+    Destination Research
+      ↓
+    Research Completion
+      ↓
+    Food
+      ↓
+    Itinerary
+      ↓
+    Validation
+      ↓
+    Final Response
+
+#### Parallel
+
+Stay, Activity, and Weather research can execute independently after destination information is available.
+
+    Destination Agent
+           |
+      +----+----+----+
+      |    |    |    |
+      v    v    v    v
+    Stay Activity Weather
+    Agent Agent   Agent
+      |    |       |
+      +----+-------+
+           |
+       Parallel Join
+
+#### Conditional
+
+The validator will decide whether the generated itinerary is acceptable.
+
+    Itinerary
+        |
+        v
+    Validator
+       /     Valid Invalid
+      |      |
+      |      v
+      |   Refine
+      |      |
+      |      └──→ Validator
+      |
+      v
+    Final Response
+
+Conditional routing may also be used for budget or weather-related decisions when useful.
+
+#### Iterative
+
+An invalid itinerary will be sent back for refinement.
+
+    Itinerary Agent
+         |
+         v
+    Itinerary Validator
+         |
+      Invalid
+         |
+         v
+    Refine Itinerary
+         |
+         v
+    Validator
+         |
+      Valid
+         |
+         v
+    Continue
+
+A maximum iteration limit will be used to prevent an endless refinement loop.
+
+### Final Target Architecture
+
+                         USER
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │   FastAPI   │
+                    └──────┬──────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │  LangGraph  │
+                    │ Orchestrator│
+                    └──────┬──────┘
+                           │
+                           ▼
+                 ┌───────────────────┐
+                 │ Destination Agent │
+                 │ + Research Tool   │
+                 └─────────┬─────────┘
+                           │
+                           ▼
+                    Destination Data
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+              ▼            ▼            ▼
+          Stay Agent   Activity Agent  Weather Agent
+              │            │            │
+              └────────────┼────────────┘
+                           │
+                     PARALLEL JOIN
+                           │
+                           ▼
+                      Food Agent
+                           │
+                           ▼
+                 ┌──────────────────┐
+                 │ Itinerary Agent  │
+                 └────────┬─────────┘
+                          │
+                          ▼
+                 Itinerary Validation
+                          │
+                    ┌─────┴─────┐
+                    │           │
+                  Valid       Invalid
+                    │           │
+                    │           ▼
+                    │      Refine Itinerary
+                    │           │
+                    │           └──────► Validator
+                    │
+                    ▼
+              Final Response Agent
+                    │
+                    ▼
+              FINAL TRAVEL PLAN
+                    │
+                    ▼
+                 Streamlit
+                    │
+                    ▼
+                   USER
+
+### Development Workflow
+
+The project continues to follow:
+
+    Understand
+        ↓
+    Research
+        ↓
+    Document Research
+        ↓
+    Learn Required Concept
+        ↓
+    Implement
+        ↓
+    Test
+        ↓
+    Refactor
+        ↓
+    Document
+        ↓
+    Git
+        ↓
+    GitHub
+
+The workflow is completed for each major project stage before moving to the next stage.
+
+### Current Next Step
+
+The next implementation stage is:
+
+    Itinerary Agent
+
+The Itinerary Agent will combine:
+
+    DestinationAnalysis
+        +
+    StayAnalysis
+        +
+    ActivityAnalysis
+        +
+    WeatherAnalysis
+        +
+    FoodAnalysis
+        ↓
+    Day-by-Day Itinerary
+
+After the Itinerary Agent is complete, the project will implement:
+
+    Validation
+        ↓
+    Conditional Routing
+        ↓
+    Iterative Refinement
+        ↓
+    Final Response Agent
+        ↓
+    FastAPI
+        ↓
+    Streamlit
+        ↓
+    MCP / Persistence / Productionization

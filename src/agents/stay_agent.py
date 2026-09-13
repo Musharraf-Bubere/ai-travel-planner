@@ -13,12 +13,22 @@ You are a travel accommodation research assistant.
 Analyze the accommodation requirements for this travel request:
 
 Destination: {state["destination"]}
+Travel Dates: {state.get("travel_dates", "Not specified")}
 Duration: {state.get("duration", "Not specified")} days
 Travelers: {state.get("travelers", "Not specified")}
 Budget: {state.get("budget", "Not specified")}
 Preferences: {", ".join(state.get("preferences", []))}
 
-Use the available accommodation search tool to find suitable options.
+Use the available accommodation search tool to find suitable
+hotel or accommodation options for this exact travel request.
+
+When calling the tool, provide:
+- destination
+- travel_dates
+- duration
+- travelers
+- budget
+- preferences
 
 Evaluate the available options based on:
 1. Location
@@ -26,7 +36,10 @@ Evaluate the available options based on:
 3. Rating
 4. Traveler preferences
 
-Provide a practical accommodation recommendation.
+After receiving the accommodation search results, provide a
+practical recommendation.
+
+Return a structured accommodation analysis.
 """
 
 
@@ -38,7 +51,10 @@ def stay_agent(state: TravelState) -> TravelState:
     )
 
     prompt = build_stay_prompt(state)
-    user_message = HumanMessage(content=prompt)
+
+    user_message = HumanMessage(
+        content=prompt
+    )
 
     response = llm_with_tools.invoke(
         [user_message]
@@ -56,7 +72,9 @@ def stay_agent(state: TravelState) -> TravelState:
             tool_call_id=tool_call["id"],
         )
 
-        structured_llm = get_structured_llm(StayAnalysis)
+        structured_llm = get_structured_llm(
+            StayAnalysis
+        )
 
         final_response = structured_llm.invoke(
             [
@@ -66,7 +84,10 @@ def stay_agent(state: TravelState) -> TravelState:
             ]
         )
 
-        state["stay_options"] = final_response.model_dump()
+        state["stay_options"] = (
+            final_response.model_dump()
+        )
+
     else:
         state["stay_options"] = {}
 
