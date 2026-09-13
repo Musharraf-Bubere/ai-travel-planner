@@ -2984,3 +2984,303 @@ Official References:
 
     Foursquare Pricing / Upcoming Changes:
     https://docs.foursquare.com/developer/reference/upcoming-changes
+
+    ## Destination Research Agent — Tavily Search Research
+
+### Purpose
+
+The Destination Research Agent is responsible for researching the requested destination and providing useful, current, and preference-aware information to the rest of the travel-planning workflow.
+
+The initial Destination Agent was implemented using the LLM alone. However, relying only on the LLM's internal knowledge is not sufficient for a travel application because destination information can change over time.
+
+Therefore, the Destination Agent will use an external web-search capability.
+
+### Selected Research Provider
+
+The selected provider for destination research is **Tavily**.
+
+Tavily is designed as a web access and search layer for AI applications and agents. It provides search results in a form that can be consumed and analyzed by an LLM.
+
+Official documentation:
+
+- Tavily Search API: https://docs.tavily.com/documentation/api-reference/search
+- Tavily documentation: https://docs.tavily.com/
+
+### Why Tavily
+
+Tavily is a suitable choice for the Destination Research Agent because destination research requires broad web information rather than a single specialized dataset.
+
+The agent may need information about:
+
+- Destination overview
+- Recommended areas
+- Major attractions
+- Travel considerations
+- Local experiences
+- Preference-specific recommendations
+- Current or recently published travel information
+
+A web-search-based solution is therefore more appropriate than a narrow destination database API.
+
+### Destination Research Architecture
+
+The planned architecture is:
+
+    Destination Agent
+            |
+            v
+    Tavily Search Tool
+            |
+            v
+       Web Search
+            |
+            v
+      Search Results
+            |
+            v
+          Gemini
+            |
+            v
+    DestinationAnalysis
+            |
+            v
+       TravelState
+
+The Destination Agent remains responsible for reasoning and analysis, while Tavily is responsible for retrieving relevant web information.
+
+### Separation of Responsibilities
+
+The system separates external information retrieval from LLM reasoning.
+
+    External Web
+         |
+         v
+    Tavily Search
+         |
+         v
+    Retrieved Information
+         |
+         v
+       Gemini
+         |
+         v
+    Analysis and Recommendations
+
+Tavily should not replace the Destination Agent.
+
+The Destination Agent will use the retrieved information as research context and then generate the structured destination analysis.
+
+### Destination Research Tool
+
+A LangChain tool will be created around the Tavily Search API.
+
+Conceptually:
+
+    @tool
+    search_destination(destination, preferences)
+            |
+            v
+       Tavily Search
+            |
+            v
+      Search Results
+
+The tool will receive the destination and relevant travel preferences and retrieve information that can help the Destination Agent analyze the destination.
+
+### Example Research
+
+For a request such as:
+
+    Destination: Goa
+    Duration: 5 days
+    Travelers: 2
+    Budget: ₹50,000
+    Preferences:
+    - beaches
+    - adventure
+    - food
+
+The Destination Research Tool may perform searches related to:
+
+    Goa best areas to visit for beaches and adventure
+    Goa travel attractions
+    Goa travel considerations
+    Goa experiences for adventure travelers
+
+The retrieved information will then be supplied to Gemini for analysis.
+
+### LLM Responsibilities
+
+Gemini remains responsible for:
+
+1. Understanding the user's travel requirements
+2. Interpreting retrieved destination information
+3. Selecting relevant information
+4. Connecting information with user preferences
+5. Producing practical recommendations
+6. Generating structured output using the Pydantic schema
+
+The LLM should not be treated as the primary source of current destination facts when external research is available.
+
+### Structured Output
+
+The existing `DestinationAnalysis` schema will be retained:
+
+    DestinationAnalysis
+    ├── overview
+    ├── recommended_areas
+    ├── travel_considerations
+    └── preference_suggestions
+
+The research results will provide context for generating these fields.
+
+### Integration with TravelState
+
+The final structured destination analysis will be stored in the shared `TravelState`.
+
+    TravelState
+         |
+         +── destination
+         +── duration
+         +── travelers
+         +── budget
+         +── preferences
+         |
+         +── destination_data
+                  |
+                  ├── overview
+                  ├── recommended_areas
+                  ├── travel_considerations
+                  └── preference_suggestions
+
+This allows subsequent agents such as Stay, Activity, Weather, Food, and Itinerary to use destination information.
+
+### Relationship with Other Agents
+
+The Destination Agent will run before the independent research agents because destination information provides useful context for the rest of the workflow.
+
+The planned workflow is:
+
+    User Request
+          |
+          v
+    Destination Agent
+          |
+          v
+    Destination Research
+          |
+          v
+    DestinationAnalysis
+          |
+          +----------------+----------------+
+          |                |                |
+          v                v                v
+       Stay            Activity         Weather
+       Agent             Agent            Agent
+          |                |                |
+          +----------------+----------------+
+                           |
+                           v
+                       Food Agent
+                           |
+                           v
+                    Itinerary Agent
+
+### API vs LLM Responsibilities
+
+The architecture follows a clear separation:
+
+    API / Search Tool
+        |
+        +-- Retrieve external information
+        |
+        +-- Provide source results
+        |
+        v
+       Gemini
+        |
+        +-- Understand information
+        +-- Reason about relevance
+        +-- Adapt to user preferences
+        +-- Generate recommendations
+        |
+        v
+    Structured Output
+
+The search provider retrieves information; the LLM performs the reasoning and analysis.
+
+### Error Handling Considerations
+
+The Destination Research Tool should handle:
+
+- Missing Tavily API key
+- Network errors
+- HTTP errors
+- Empty search results
+- Invalid responses
+- Search failures
+
+The agent should not silently fabricate research results when the external search fails.
+
+Error handling and retry behavior will be improved later as part of the project's engineering and productionization phase.
+
+### Testing Strategy
+
+The Destination Research implementation will be tested at multiple levels:
+
+1. Tool-level testing
+2. Search/API response handling
+3. Agent-level testing
+4. Structured output validation
+5. LangGraph integration
+6. Real API end-to-end testing
+
+Mock responses may be used for deterministic unit tests, while a real API test will verify that the complete research flow works with Tavily.
+
+### Initial Implementation Decision
+
+The first implementation will use the Tavily Search API through a custom LangChain tool.
+
+The project will not initially use Tavily's complete research workflow as the Destination Agent itself.
+
+This keeps the architecture under our control:
+
+    LangGraph
+        |
+        v
+    Destination Agent
+        |
+        v
+    LangChain Tool
+        |
+        v
+    Tavily Search API
+
+More advanced research capabilities can be evaluated later if they provide meaningful value to the project.
+
+### Conclusion
+
+The Destination Agent will be upgraded from an LLM-only agent to a research-enabled agent.
+
+The final responsibility split is:
+
+    Tavily
+        -> Retrieve current web information
+
+    Gemini
+        -> Analyze and reason over the information
+
+    Pydantic
+        -> Validate structured output
+
+    LangGraph
+        -> Orchestrate the agent within the travel workflow
+
+This provides a stronger foundation for the multi-agent travel-planning system while keeping the architecture modular and extensible.
+
+### Sources
+
+- Tavily Search API:
+  https://docs.tavily.com/documentation/api-reference/search
+- Tavily Documentation:
+  https://docs.tavily.com/

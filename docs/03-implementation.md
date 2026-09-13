@@ -3337,3 +3337,329 @@ Current workflow:
     END
 
 The next major feature will extend the travel planning workflow beyond individual research agents toward itinerary generation and final travel-plan composition.
+
+## Destination Research Agent Implementation
+
+### Purpose
+
+The Destination Research Agent is responsible for researching the requested destination using real web information and generating a structured destination analysis tailored to the traveler's requirements.
+
+The original Destination Agent used Gemini alone. It has now been upgraded to use Tavily for external web research.
+
+### Architecture
+
+The implemented flow is:
+
+    Destination Agent
+            |
+            v
+        Gemini
+            |
+            v
+    Destination Research Tool
+            |
+            v
+       Tavily Search API
+            |
+            v
+       Web Search Results
+            |
+            v
+        Gemini Analysis
+            |
+            v
+    DestinationAnalysis
+            |
+            v
+        TravelState
+
+### Tavily Configuration
+
+The Tavily Python client is used to communicate with the Tavily Search API.
+
+The Tavily API key is stored in the environment file:
+
+    TAVILY_API_KEY=...
+
+The `.env` file is excluded from Git using `.gitignore`.
+
+### Destination Research Tool
+
+File:
+
+    src/tools/destination.py
+
+The `search_destination` function is implemented as a LangChain tool.
+
+Its responsibilities are:
+
+1. Read the Tavily API key from the environment.
+2. Create a Tavily client.
+3. Build a destination-focused search query.
+4. Include the traveler's preferences in the query.
+5. Search the web using Tavily.
+6. Retrieve the most relevant results.
+7. Normalize the results into a simple list of dictionaries.
+
+The tool returns:
+
+    [
+        {
+            "title": "...",
+            "url": "...",
+            "content": "..."
+        }
+    ]
+
+The tool does not generate the final travel recommendations. Its responsibility is external information retrieval.
+
+### Search Configuration
+
+The initial implementation uses:
+
+    search_depth="advanced"
+    max_results=5
+
+This provides a small set of detailed research results for the Destination Agent.
+
+### Destination Research Query
+
+The tool builds a query using the destination and user preferences.
+
+Conceptually:
+
+    destination
+        +
+    travel preferences
+        ↓
+    destination travel research query
+        ↓
+    Tavily Search
+
+For example, a request for:
+
+    Destination: Goa
+    Preferences: beaches, adventure, food
+
+results in a research query focused on Goa travel information, recommended areas, attractions, travel considerations, and recommendations related to those preferences.
+
+### Destination Agent
+
+File:
+
+    src/agents/destination_agent.py
+
+The Destination Agent uses Gemini with the `search_destination` tool.
+
+The agent follows the standard tool-calling pattern used by the other specialist agents:
+
+    HumanMessage
+         |
+         v
+       Gemini
+         |
+         v
+      Tool Call
+         |
+         v
+    search_destination
+         |
+         v
+       Tavily
+         |
+         v
+    Tool Result
+         |
+         v
+       Gemini
+         |
+         v
+    Structured Output
+
+### Tool Calling
+
+The Destination Agent binds the research tool to Gemini:
+
+    llm_with_tools = llm.bind_tools(
+        [search_destination]
+    )
+
+Gemini can then request the destination research tool when external information is required.
+
+The returned tool call is executed using:
+
+    search_destination.invoke(
+        tool_call["args"]
+    )
+
+The tool result is then converted into a `ToolMessage` and passed back to Gemini.
+
+### Structured Output
+
+After receiving the research results, the Destination Agent uses the existing `DestinationAnalysis` Pydantic schema.
+
+The schema contains:
+
+    DestinationAnalysis
+    ├── overview
+    ├── recommended_areas
+    ├── travel_considerations
+    └── preference_suggestions
+
+Gemini uses the retrieved research to populate these fields.
+
+The final Pydantic model is converted into a dictionary using:
+
+    final_response.model_dump()
+
+and stored in the shared travel state.
+
+### Shared State Integration
+
+The resulting destination analysis is stored in:
+
+    state["destination_data"]
+
+The relevant state flow is:
+
+    User Input
+         |
+         v
+    Destination Agent
+         |
+         v
+    DestinationAnalysis
+         |
+         v
+    state["destination_data"]
+
+This allows downstream agents to access destination research.
+
+### Real API Testing
+
+The Destination Research Tool was first tested independently using a real Tavily API request.
+
+Example test:
+
+    search_destination.invoke(
+        {
+            "destination": "Goa",
+            "preferences": [
+                "beaches",
+                "adventure"
+            ]
+        }
+    )
+
+The test successfully returned multiple web research results containing:
+
+- Title
+- URL
+- Content
+
+### Real Destination Agent Testing
+
+The complete Destination Agent was then tested with:
+
+    Destination: Goa
+    Duration: 5 days
+    Travelers: 2
+    Budget: 50000
+    Preferences:
+    - beaches
+    - adventure
+    - food
+
+The agent successfully:
+
+1. Received the travel requirements.
+2. Called the Tavily research tool.
+3. Retrieved real web information.
+4. Passed the research result back to Gemini.
+5. Generated a structured destination analysis.
+6. Stored the result in `destination_data`.
+
+### LangGraph Integration
+
+The Destination Agent is already registered as the first specialist agent in the travel graph.
+
+The current graph begins with:
+
+    START
+      |
+      v
+    Destination Agent
+      |
+      v
+    Stay Agent
+      |
+      v
+    Activity Agent
+      |
+      v
+    Weather Agent
+      |
+      v
+    Food Agent
+      |
+      v
+    END
+
+The Destination Agent therefore provides destination research before the downstream travel-planning agents execute.
+
+### LangGraph Integration Test
+
+The Destination Agent was tested through the actual compiled LangGraph rather than only as an isolated function.
+
+The graph successfully executed and returned:
+
+    result["destination_data"]
+
+with a valid structured destination analysis.
+
+This confirms that the real Tavily-powered Destination Agent works inside the existing travel workflow.
+
+### Error Handling
+
+The Destination Research Tool currently validates the presence of:
+
+    TAVILY_API_KEY
+
+If the key is missing, the tool raises a clear configuration error.
+
+The Tavily request is handled through the Tavily Python client.
+
+More advanced retry, fallback, and centralized error handling will be implemented later as part of the project's engineering and productionization phases.
+
+### Current Status
+
+The Destination Research Agent is functionally complete.
+
+    Destination Agent
+        |
+        +-- Gemini
+        |
+        +-- Tavily Search Tool
+        |
+        +-- Real Web Research
+        |
+        +-- Pydantic Structured Output
+        |
+        +-- TravelState Integration
+        |
+        +-- LangGraph Integration
+        |
+        +-- Real API Testing
+
+Status:
+
+    Understand        -> Complete
+    Research          -> Complete
+    Document Research -> Complete
+    Learn Concept     -> Complete
+    Implement         -> Complete
+    Test              -> Complete
+    Refactor          -> Deferred to global tool-calling refactor
+    Document           -> Complete
+
+The recurring Gemini AFC warning observed during tool calling is not treated as a Destination Agent-specific failure. It will be addressed later as a cross-cutting tool-calling refactor across the specialist agents.
