@@ -3400,3 +3400,83 @@ After the Itinerary Agent is complete, the project will implement:
     Streamlit
         ↓
     MCP / Persistence / Productionization
+
+
+## Itinerary Agent
+
+### Purpose
+
+The Itinerary Agent is a synthesis agent responsible for converting the research collected by the previous travel agents into a practical day-by-day travel plan.
+
+Unlike the Destination, Stay, Activity, Weather, and Food agents, the Itinerary Agent does not currently call an external API. It consumes the structured information already available in `TravelState`.
+
+### Input
+
+The Itinerary Agent uses:
+
+- Destination research
+- Accommodation recommendations
+- Activity recommendations
+- Weather information
+- Restaurant recommendations
+- Travel dates
+- Trip duration
+- Number of travelers
+- Budget
+- Traveler preferences
+
+### Processing
+
+The agent sends the collected travel information to Gemini through a structured-output LLM.
+
+The prompt instructs the model to:
+
+1. Create an itinerary for exactly the requested number of days.
+2. Use only activities and restaurants present in the provided research.
+3. Avoid inventing attractions, restaurants, prices, locations, or other factual information.
+4. Consider traveler preferences.
+5. Consider weather information when planning outdoor activities.
+6. Group activities logically by location where possible.
+7. Use practical time slots such as Morning, Afternoon, and Evening.
+8. Keep the itinerary practical rather than overcrowded.
+9. Explicitly state when information is unavailable instead of guessing.
+
+### Structured Output
+
+The Itinerary Agent uses the `ItineraryAnalysis` Pydantic schema.
+
+The schema contains:
+
+- `itinerary`
+- `total_days`
+- `budget_assessment`
+- `planning_notes`
+
+Each itinerary item contains:
+
+- `day`
+- `time`
+- `activity`
+- `location`
+- `description`
+
+### Architecture
+
+```text
+Destination Research
+        │
+        ▼
+Accommodation ─────┐
+Activity ──────────┤
+Weather ───────────┤
+Restaurants ───────┤
+                    ▼
+             Itinerary Agent
+                    │
+                    ▼
+          Structured Itinerary
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+      Day-by-Day         Planning Notes
+       Schedule          & Budget
