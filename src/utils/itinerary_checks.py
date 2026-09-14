@@ -48,6 +48,22 @@ GENERIC_ACTIVITIES = {
 }
 
 
+# Activities that may look like place names after normalization
+# but are not specific enough to represent a unique place.
+GENERIC_PLACE_WORDS = {
+    "beach",
+    "visit",
+    "activity",
+    "attraction",
+    "experience",
+    "sightseeing",
+    "explore",
+    "exploration",
+    "relax",
+    "relaxation",
+}
+
+
 # Words that can be safely removed when comparing an itinerary
 # place name with a researched place name.
 PLACE_NAME_STOPWORDS = {
@@ -317,12 +333,15 @@ def extract_itinerary_places(
     itinerary: list[dict],
 ) -> dict[str, list[int]]:
     """
-    Extract meaningful places from itinerary items.
+    Extract meaningful named places from itinerary items.
 
     Activities use the activity field as the place name.
 
     Restaurant-style entries such as Dinner use the location field
     because the actual restaurant name is stored there.
+
+    Generic activity names such as 'Beach Visit' are not treated as
+    named places because they do not identify a unique location.
     """
     place_occurrences = defaultdict(list)
 
@@ -364,13 +383,42 @@ def extract_itinerary_places(
             continue
 
         # --------------------------------------------------------
+        # Generic activity patterns
+        # --------------------------------------------------------
+
+        normalized_activity_for_duplicate_check = (
+            normalize_place_name(activity)
+        )
+
+        activity_tokens = set(
+            normalized_activity_for_duplicate_check.split()
+        )
+
+        # If normalization leaves only generic words such as
+        # 'beach', 'visit', or 'attraction', the activity does not
+        # identify a unique place and should not be treated as one.
+        if (
+            normalized_activity_for_duplicate_check
+            and activity_tokens
+            and activity_tokens.issubset(
+                GENERIC_PLACE_WORDS
+            )
+        ):
+            continue
+
+        # --------------------------------------------------------
         # Normal activity / attraction
         # --------------------------------------------------------
 
         if activity:
-            place_occurrences[
-                normalize_place_name(activity)
-            ].append(day)
+            normalized_place = normalize_place_name(
+                activity
+            )
+
+            if normalized_place:
+                place_occurrences[
+                    normalized_place
+                ].append(day)
 
     return dict(place_occurrences)
 
@@ -383,6 +431,9 @@ def find_duplicate_itinerary_places(
 
     Generic activities such as Dinner, Lunch, Breakfast, Check-in,
     and Relaxation are not treated as places themselves.
+
+    Generic descriptions such as 'Beach Visit' are also not treated
+    as unique places.
 
     For generic activities, the location is checked so repeated
     restaurants can still be detected.

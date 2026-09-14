@@ -19,15 +19,24 @@ def build_refinement_prompt(state: TravelState) -> str:
         ""
     )
 
+    validation_attempts = state.get(
+        "validation_attempts",
+        0
+    )
+
     return f"""
-You are a strict travel itinerary refinement assistant.
+You are a STRICT travel itinerary repair assistant.
 
-Your task is to REPAIR the current itinerary using the validation
-feedback and the available research.
+Your task is to REPAIR the CURRENT itinerary so that it passes the
+validation rules.
 
-You are NOT creating a completely new itinerary unless necessary.
+You are NOT allowed to simply rewrite the same itinerary.
 
-The refined itinerary must directly address EVERY validation issue.
+Every validation issue must result in a REAL change to the itinerary
+when the current itinerary violates that issue.
+
+The final structured itinerary must satisfy the validation requirements,
+not merely claim that they have been satisfied.
 
 ============================================================
 ORIGINAL TRAVEL REQUEST
@@ -41,22 +50,38 @@ Budget: {state.get("budget", "Not specified")}
 Preferences: {", ".join(state.get("preferences", []))}
 
 ============================================================
+CURRENT VALIDATION ATTEMPT
+============================================================
+
+This itinerary has already been validated/refined approximately:
+
+{validation_attempts} attempt(s).
+
+If the same issue has appeared repeatedly, you MUST make a stronger
+structural change rather than returning the same itinerary again.
+
+============================================================
 AVAILABLE RESEARCH
 ============================================================
 
-DESTINATION:
+DESTINATION RESEARCH:
+
 {state.get("destination_data", {})}
 
-ACCOMMODATION:
+ACCOMMODATION RESEARCH:
+
 {state.get("stay_options", {})}
 
-ACTIVITIES:
+ACTIVITY RESEARCH:
+
 {state.get("activities", {})}
 
-WEATHER:
+WEATHER RESEARCH:
+
 {state.get("weather", {})}
 
-RESTAURANTS:
+RESTAURANT RESEARCH:
+
 {state.get("restaurants", {})}
 
 ============================================================
@@ -78,126 +103,187 @@ VALIDATION FEEDBACK
 {validation_feedback}
 
 ============================================================
-HARD REFINEMENT REQUIREMENTS
+NON-NEGOTIABLE REPAIR RULES
 ============================================================
 
-1. EVERY VALIDATION ISSUE MUST BE FIXED
+1. FIX EVERY VALIDATION ISSUE
 
-You must actively modify the itinerary to resolve every issue listed
-in the validation result.
+Every item in the validation issues list is a real constraint.
 
-Do not simply preserve an itinerary item that caused a validation issue.
+Do not return an itinerary that still violates any listed issue.
 
-Do not claim that an issue was fixed unless the resulting itinerary
-actually satisfies the validation requirement.
+Do not merely describe a fix.
+
+The STRUCTURED ITINERARY must contain the actual fix.
 
 ------------------------------------------------------------
 
-2. DETERMINISTIC VALIDATION ISSUES ARE HARD CONSTRAINTS
+2. NEVER RETURN THE SAME INVALID STRUCTURE
 
-Some validation issues are produced by deterministic programmatic
-checks.
+If the current itinerary contains the problem identified by validation,
+you MUST modify the affected itinerary item(s).
 
-These issues MUST be treated as hard constraints.
+Do not preserve the exact same problematic locations merely because they
+are otherwise good activities.
 
-Do not override them with your own judgment.
+If necessary, remove an affected activity or restaurant and replace it
+with another researched option.
+
+A smaller valid itinerary is preferable to an invalid itinerary.
+
+------------------------------------------------------------
+
+3. GEOGRAPHIC VALIDATION IS A HARD CONSTRAINT
+
+Geographic validation is deterministic and MUST NOT be overridden by
+your own judgment.
+
+If validation reports a geographic inconsistency, identify the exact
+days and locations involved.
 
 For example, if validation reports:
 
-"Day 3 combines locations from multiple geographic areas
-(central_goa, south_goa)."
+"The itinerary moves from south_goa on Day 2 to north_goa on Day 3."
 
-then Day 3 MUST be changed so that the conflicting geographic grouping
-is removed.
+then the current Day 2 / Day 3 arrangement is INVALID.
 
-Do NOT merely state that the itinerary is now geographically grouped.
+You MUST change the geographic arrangement.
 
-The actual itinerary must change.
+For this example, acceptable repairs include:
 
-------------------------------------------------------------
+- Keep Day 2 and Day 3 in south_goa.
+- Move Day 2 activities to north_goa and keep Day 3 in north_goa.
+- Replace the conflicting activities/restaurants with researched
+  alternatives from the same geographic region.
+- Remove unnecessary conflicting items when no suitable researched
+  replacement exists.
 
-3. GEOGRAPHIC REFINEMENT
+UNACCEPTABLE repair:
 
-When a geographic inconsistency is reported:
+Day 2 remains south_goa and Day 3 still contains north_goa locations.
 
-- Identify the itinerary items responsible for the conflict.
-- Keep compatible locations together.
-- Move or replace the conflicting item using another researched item
-  when appropriate.
-- Do not invent a new attraction.
-- Do not invent travel distances or travel times.
-- Prefer grouping activities from the same geographic area on the same
-  day.
-- If an item must be removed, replace it only with a researched and
-  suitable item.
-- If no suitable replacement exists, reduce unnecessary activities
-  rather than inventing one.
+Another UNACCEPTABLE repair:
 
-For a short trip, geographic coherence is more important than keeping
-every original activity.
+Return the same Day 2 and Day 3 locations and merely claim that the
+itinerary is now geographically coherent.
+
+The actual locations in the structured itinerary must change.
 
 ------------------------------------------------------------
 
-4. DUPLICATE-PLACE REFINEMENT
+4. CONSECUTIVE-DAY GEOGRAPHIC COHERENCE
 
-If validation reports a repeated attraction, activity, restaurant, or
-other named place:
+For a short trip, consecutive days should remain geographically
+coherent.
 
-- Remove the unnecessary repetition.
-- Replace it only with a researched alternative when appropriate.
-- Do not invent a replacement.
+If validation identifies:
 
-Generic activities such as:
+Day N = REGION_A
+Day N+1 = REGION_B
 
-- Breakfast
-- Lunch
-- Dinner
-- Check-in
-- Check-out
-- Free time
-- Relaxation
+and REGION_A and REGION_B are disjoint geographic areas, repair the
+itinerary so that the consecutive days no longer create that conflict.
 
-may repeat when appropriate.
+Prefer keeping the two consecutive days within the same primary
+geographic region.
+
+Do not invent a new location.
+
+Use only researched locations.
 
 ------------------------------------------------------------
 
-5. ACTIVITY GROUNDING
+5. SAME-DAY GEOGRAPHIC COHERENCE
+
+Do not combine unrelated geographic regions within the same day when
+the deterministic geographic validator considers them inconsistent.
+
+If a day contains conflicting regions:
+
+- Identify the conflicting itinerary entries.
+- Keep one primary region.
+- Remove or replace conflicting entries.
+- Use researched alternatives from the primary region.
+
+Do not invent replacement attractions or restaurants.
+
+------------------------------------------------------------
+
+6. SHORT-TRIP REGIONAL COHERENCE
+
+For a short trip, avoid unnecessarily covering multiple distant
+geographic regions.
+
+Prioritize one primary geographic region when possible.
+
+For example, do not create a short Goa itinerary that unnecessarily
+moves between:
+
+- north_goa
+- south_goa
+- central_goa
+
+unless the researched itinerary and validation rules explicitly permit
+that arrangement.
+
+Geographic coherence is more important than maximizing the number of
+activities.
+
+------------------------------------------------------------
+
+7. ACTIVITY GROUNDING
 
 Every actual attraction or activity must come from:
 
 activities.recommended_activities
 
-Do not introduce attractions from general knowledge.
+Do NOT introduce attractions from general knowledge.
 
 If an activity is not present in the researched activity results,
-remove or replace it with a researched activity.
+remove it or replace it with a researched activity.
+
+Generic activities such as check-in, check-out, free time, relaxation,
+breaks, breakfast, lunch, and dinner may be used when appropriate.
 
 ------------------------------------------------------------
 
-6. RESTAURANT GROUNDING
+8. RESTAURANT GROUNDING
 
 Every named restaurant must come from:
 
 restaurants.recommended_restaurants
 
-Do not introduce restaurants from general knowledge.
+Do NOT introduce restaurants from general knowledge.
 
 If a restaurant is not present in the researched restaurant results,
-remove or replace it with a researched restaurant.
+remove it or replace it with a researched restaurant.
 
 ------------------------------------------------------------
 
-7. ACCOMMODATION GROUNDING
+9. ACCOMMODATION GROUNDING
 
 If a specific accommodation is named, it must come from:
 
 stay_options.accommodation_options
 
-Do not invent accommodation names.
+Do NOT invent accommodation names.
 
 ------------------------------------------------------------
 
-8. NO HALLUCINATED FACTS
+10. DUPLICATE-PLACE REPAIR
+
+If validation reports a repeated attraction, activity, restaurant,
+hotel, or other named place:
+
+- Remove the unnecessary repetition.
+- Replace it only with a researched alternative when appropriate.
+- Do not invent a replacement.
+
+Generic activities may repeat when appropriate.
+
+------------------------------------------------------------
+
+11. NO HALLUCINATED FACTS
 
 Do not invent:
 
@@ -217,32 +303,36 @@ Use only the original travel request and available research.
 
 ------------------------------------------------------------
 
-9. UNAVAILABLE INFORMATION
+12. UNAVAILABLE INFORMATION
 
-If a research field contains:
+If research contains:
 
 - 0.0
 - "Not available"
 - missing information
 
-do not interpret the value as a confirmed fact.
+do not interpret those values as confirmed facts.
 
 For example:
 
 Activity cost = 0.0
 
-does NOT mean the activity is free.
+does NOT necessarily mean the activity is free.
 
-It means pricing information may be unavailable.
+It means pricing information is unavailable.
 
-Similarly, restaurant price_level is a relative price category and
-should not be converted into an exact meal price.
+Similarly, restaurant price_level is a relative category and must not
+be converted into an exact meal price.
 
 ------------------------------------------------------------
 
-10. EXACT DURATION
+13. EXACT TRIP DURATION
 
 Keep exactly the requested number of days.
+
+Requested duration:
+
+{state.get("duration", "Not specified")} days
 
 Every requested day must be represented.
 
@@ -252,105 +342,158 @@ Do not remove required days.
 
 ------------------------------------------------------------
 
-11. PREFERENCE ALIGNMENT
+14. PREFERENCE ALIGNMENT
 
-Preserve the traveler's stated preferences where possible:
+Preserve the traveler's preferences where possible:
 
 {", ".join(state.get("preferences", []))}
 
-However, preferences must not override validation requirements.
+However, preferences MUST NOT override validation requirements.
 
-A valid, grounded itinerary is more important than keeping an
-unsupported activity merely because it matches a preference.
+A valid and grounded itinerary is more important than retaining an
+unsupported activity.
 
 ------------------------------------------------------------
 
-12. WEATHER
+15. WEATHER
 
 Use the available weather research.
 
 Do not invent weather information.
 
-Avoid unsupported claims that an outdoor activity will definitely have
-good weather.
+Do not claim that an outdoor activity will definitely have suitable
+weather unless the research supports that statement.
 
 ------------------------------------------------------------
 
-13. BUDGET
+16. BUDGET
 
-Keep budget-related statements grounded in the available research.
+Keep budget statements grounded in available research.
 
-Do not claim an exact total trip cost unless the available research
-supports that calculation.
+Do not claim an exact total trip cost unless the research supports the
+calculation.
 
 Do not treat unavailable activity prices as free.
 
-Do not confuse accommodation nightly prices with total trip cost.
+Do not confuse accommodation nightly prices with total accommodation
+cost.
 
 ------------------------------------------------------------
 
-14. AVOID OVERCROWDING
+17. AVOID OVERCROWDING
 
 Do not add activities simply to fill empty time.
 
-Prefer a smaller, realistic itinerary over an overcrowded itinerary.
+A smaller realistic itinerary is better than an overcrowded itinerary.
 
 ------------------------------------------------------------
 
-15. PRESERVE VALID INFORMATION
+18. PRESERVE VALID INFORMATION
 
-Preserve itinerary items that are already valid when doing so does not
+Preserve itinerary items that are already valid when they do not
 conflict with a validation issue.
 
-Only modify the parts necessary to repair the itinerary.
+However, when a location is responsible for a geographic validation
+failure, it MUST be changed, moved, or removed.
 
 ============================================================
-REFINEMENT PROCEDURE
+REPAIR PROCEDURE
 ============================================================
 
-Before producing the final itinerary:
+Before producing the structured itinerary, perform this procedure
+internally.
 
 STEP 1:
-Read every validation issue.
+Read EVERY validation issue.
 
 STEP 2:
-Identify exactly which itinerary item or items caused each issue.
+Identify the exact itinerary day(s) and item(s) responsible for each
+issue.
 
 STEP 3:
-Modify those items.
+For every geographic issue, identify the geographic region of the
+affected itinerary entries.
 
 STEP 4:
-Check that the modified items use only available research.
+Choose a primary geographic region for the affected consecutive days.
 
 STEP 5:
-Check geographic consistency again.
+Keep compatible researched locations in that region.
 
 STEP 6:
-Check duplicate places again.
+Remove or replace conflicting locations using ONLY researched
+activities, restaurants, or accommodation options.
 
 STEP 7:
-Check activity, restaurant, and accommodation grounding again.
+Check for duplicate places again.
 
 STEP 8:
-Check that the itinerary still contains exactly the requested number
-of days.
+Check activity grounding again.
 
 STEP 9:
-Check that no unsupported facts were introduced.
+Check restaurant grounding again.
 
 STEP 10:
-Return the repaired itinerary.
+Check accommodation grounding again.
+
+STEP 11:
+Check that every day from Day 1 through the requested duration exists.
+
+STEP 12:
+Check that consecutive days do not violate the geographic validation
+constraint.
+
+STEP 13:
+Check that no unsupported facts have been introduced.
+
+STEP 14:
+Return the complete repaired itinerary.
+
+============================================================
+FINAL SELF-CHECK
+============================================================
+
+Before returning the structured itinerary, verify ALL of the following:
+
+[ ] Every validation issue has been genuinely fixed.
+
+[ ] No affected geographic conflict remains.
+
+[ ] If validation reported Day N → Day N+1 geographic movement,
+    the actual itinerary locations for those days have been changed
+    when necessary.
+
+[ ] No unchanged invalid location remains merely because it was present
+    in the previous itinerary.
+
+[ ] All actual activities come from researched activities.
+
+[ ] All named restaurants come from researched restaurants.
+
+[ ] All named accommodations come from researched accommodations.
+
+[ ] No duplicate named places remain when validation prohibits them.
+
+[ ] No invented factual information has been introduced.
+
+[ ] Exactly the requested number of days is present.
+
+[ ] Traveler preferences are respected where possible.
+
+[ ] Weather information is grounded in research.
+
+[ ] Budget information is grounded in research.
 
 IMPORTANT:
 
-Do not output an explanation of what you intended to fix.
+Do NOT output an explanation of your repair process.
 
-The STRUCTURED ITINERARY itself must contain the corrections.
+Do NOT say that an issue was fixed unless the actual structured
+itinerary reflects the correction.
 
-If validation says an item is invalid, the final itinerary must no longer
-contain that invalid item unless it has been genuinely corrected.
+The structured itinerary itself MUST contain the corrections.
 
-Return the complete improved itinerary as a structured itinerary
+Return the COMPLETE repaired itinerary as a structured itinerary
 analysis.
 """
 
@@ -360,7 +503,9 @@ def refine_itinerary(state: TravelState) -> TravelState:
         ItineraryAnalysis
     )
 
-    prompt = build_refinement_prompt(state)
+    prompt = build_refinement_prompt(
+        state
+    )
 
     user_message = HumanMessage(
         content=prompt
