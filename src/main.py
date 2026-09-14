@@ -20,6 +20,34 @@ def main():
     result = graph.invoke(state)
 
     print("\n" + "=" * 60)
+    print("INTERMEDIATE STATE")
+    print("=" * 60)
+
+    print("\nDESTINATION:")
+    print(result.get("destination_data"))
+
+    print("\nACCOMMODATION:")
+    print(result.get("stay_options"))
+
+    print("\nACTIVITIES:")
+    print(result.get("activities"))
+
+    print("\nWEATHER:")
+    print(result.get("weather"))
+
+    print("\nRESTAURANTS:")
+    print(result.get("restaurants"))
+
+    print("\nITINERARY:")
+    print(result.get("itinerary"))
+
+    print("\nVALIDATION:")
+    print(result.get("validation"))
+
+    print("\nVALIDATION ATTEMPTS:")
+    print(result.get("validation_attempts"))
+
+    print("\n" + "=" * 60)
     print("FINAL TRAVEL PLAN")
     print("=" * 60)
 

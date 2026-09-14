@@ -30,13 +30,16 @@ When calling the tool, provide:
 IMPORTANT DATA-GROUNDING RULES:
 1. Use only activities returned by the activity search tool.
 2. Do not introduce activities that are not present in the tool results.
-3. Do not invent prices, durations, ratings, or other factual details.
+3. Do not invent prices, durations, ratings, locations, or other
+   factual details.
 4. If price information is unavailable, use 0.0.
 5. If duration information is unavailable, use "Not available".
 6. Descriptions must be based only on the retrieved activity information.
 7. You may categorize and rank the retrieved activities according to
    the traveler's preferences.
 8. Budget assessment must acknowledge when activity pricing is unavailable.
+9. Every recommended activity must correspond to an activity returned
+   by the search tool.
 
 Evaluate the available activities based on:
 1. Traveler preferences
@@ -57,38 +60,43 @@ def activity_agent(state: TravelState) -> TravelState:
     )
 
     prompt = build_activity_prompt(state)
-    user_message = HumanMessage(content=prompt)
+
+    user_message = HumanMessage(
+        content=prompt
+    )
 
     response = llm_with_tools.invoke(
         [user_message]
     )
 
-    if response.tool_calls:
-        tool_call = response.tool_calls[0]
-
-        tool_result = search_activities.invoke(
-            tool_call["args"]
+    if not response.tool_calls:
+        raise ValueError(
+            "Activity agent did not call the activity search tool."
         )
 
-        tool_message = ToolMessage(
-            content=str(tool_result),
-            tool_call_id=tool_call["id"],
-        )
+    tool_call = response.tool_calls[0]
 
-        structured_llm = get_structured_llm(ActivityAnalysis)
+    tool_result = search_activities.invoke(
+        tool_call["args"]
+    )
 
-        final_response = structured_llm.invoke(
-            [
-                user_message,
-                response,
-                tool_message,
-            ]
-        )
+    tool_message = ToolMessage(
+        content=str(tool_result),
+        tool_call_id=tool_call["id"],
+    )
 
-        state["activities"] = final_response.model_dump()
-    else:
-        state["activities"] = {}
+    structured_llm = get_structured_llm(
+        ActivityAnalysis
+    )
+
+    final_response = structured_llm.invoke(
+        [
+            user_message,
+            response,
+            tool_message,
+        ]
+    )
 
     return {
-        "activities": response.model_dump()
+        "activities": final_response.model_dump()
     }

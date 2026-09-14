@@ -21,6 +21,7 @@ def test_parallel_workflow_structure():
     assert "validator" in graph_structure.nodes
     assert "refine_itinerary" in graph_structure.nodes
     assert "final_response" in graph_structure.nodes
+    assert "validation_failed" in graph_structure.nodes
 
     destination_edges = [
         edge
@@ -83,7 +84,7 @@ def test_route_after_validation_stops_at_max_attempts():
         "validation_attempts": 3,
     }
 
-    assert route_after_validation(state) == "valid"
+    assert route_after_validation(state) == "max_attempts"
 
 
 def test_final_response_workflow_structure():
@@ -103,3 +104,23 @@ def test_final_response_workflow_structure():
         edge.target == "__end__"
         for edge in final_response_edges
     )
+
+
+def test_validation_failed_workflow_structure():
+    graph = build_travel_graph()
+
+    graph_structure = graph.get_graph()
+
+    assert "validation_failed" in graph_structure.nodes
+
+    validation_failed_edges = [
+        edge
+        for edge in graph_structure.edges
+        if edge.source == "validation_failed"
+    ]
+
+    assert any(
+        edge.target == "__end__"
+        for edge in validation_failed_edges
+    )
+    

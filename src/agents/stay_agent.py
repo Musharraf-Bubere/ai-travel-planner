@@ -36,10 +36,20 @@ Evaluate the available options based on:
 3. Rating
 4. Traveler preferences
 
+IMPORTANT DATA-GROUNDING RULES:
+1. Use only accommodation options returned by the search tool.
+2. Do not invent hotels, prices, ratings, locations, or descriptions.
+3. If a field is unavailable in the tool results, clearly state that
+   the information is unavailable.
+4. Budget assessment must be based only on the retrieved accommodation
+   information and the user's stated budget.
+5. Recommendations must refer only to retrieved accommodation options.
+
 After receiving the accommodation search results, provide a
 practical recommendation.
 
-Return a structured accommodation analysis.
+Return a structured accommodation analysis grounded strictly in
+the retrieved tool results.
 """
 
 
@@ -60,37 +70,34 @@ def stay_agent(state: TravelState) -> TravelState:
         [user_message]
     )
 
-    if response.tool_calls:
-        tool_call = response.tool_calls[0]
-
-        tool_result = search_accommodations.invoke(
-            tool_call["args"]
+    if not response.tool_calls:
+        raise ValueError(
+            "Stay agent did not call the accommodation search tool."
         )
 
-        tool_message = ToolMessage(
-            content=str(tool_result),
-            tool_call_id=tool_call["id"],
-        )
+    tool_call = response.tool_calls[0]
 
-        structured_llm = get_structured_llm(
-            StayAnalysis
-        )
+    tool_result = search_accommodations.invoke(
+        tool_call["args"]
+    )
 
-        final_response = structured_llm.invoke(
-            [
-                user_message,
-                response,
-                tool_message,
-            ]
-        )
+    tool_message = ToolMessage(
+        content=str(tool_result),
+        tool_call_id=tool_call["id"],
+    )
 
-        state["stay_options"] = (
-            final_response.model_dump()
-        )
+    structured_llm = get_structured_llm(
+        StayAnalysis
+    )
 
-    else:
-        state["stay_options"] = {}
+    final_response = structured_llm.invoke(
+        [
+            user_message,
+            response,
+            tool_message,
+        ]
+    )
 
     return {
-        "stay_options": response.model_dump()
+        "stay_options": final_response.model_dump()
     }
