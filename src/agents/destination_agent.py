@@ -1,9 +1,25 @@
 from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.tools import tool
 
 from src.schemas.destination import DestinationAnalysis
 from src.services.llm import get_llm, get_structured_llm
 from src.state import TravelState
-from src.tools.destination import search_destination
+from src.mcp_server.client import call_mcp_tool
+
+
+@tool
+def destination_research_tool(
+    destination: str,
+    preferences: list[str],
+) -> list[dict]:
+    """Research a travel destination using the MCP travel research server."""
+    return call_mcp_tool(
+        "destination_research",
+        {
+            "destination": destination,
+            "preferences": preferences,
+        },
+    )
 
 
 def build_destination_prompt(state: TravelState) -> str:
@@ -38,7 +54,7 @@ def destination_agent(state: TravelState) -> TravelState:
     llm = get_llm()
 
     llm_with_tools = llm.bind_tools(
-        [search_destination]
+        [destination_research_tool]
     )
 
     prompt = build_destination_prompt(state)
@@ -48,30 +64,34 @@ def destination_agent(state: TravelState) -> TravelState:
         [user_message]
     )
 
-    if response.tool_calls:
-        tool_call = response.tool_calls[0]
-
-        tool_result = search_destination.invoke(
-            tool_call["args"]
+    if not response.tool_calls:
+        raise ValueError(
+            "Destination agent did not call the destination research tool."
         )
 
-        tool_message = ToolMessage(
-            content=str(tool_result),
-            tool_call_id=tool_call["id"],
-        )
+    tool_call = response.tool_calls[0]
 
-        structured_llm = get_structured_llm(
-            DestinationAnalysis
-        )
+    tool_result = destination_research_tool.invoke(
+        tool_call["args"]
+    )
 
-        final_response = structured_llm.invoke(
-            [
-                user_message,
-                response,
-                tool_message,
-            ]
-        )
+    tool_message = ToolMessage(
+        content=str(tool_result),
+        tool_call_id=tool_call["id"],
+    )
 
-        state["destination_data"] = final_response.model_dump()
+    structured_llm = get_structured_llm(
+        DestinationAnalysis
+    )
 
-    return state
+    final_response = structured_llm.invoke(
+        [
+            user_message,
+            response,
+            tool_message,
+        ]
+    )
+
+    return {
+        "destination_data": final_response.model_dump()
+    }

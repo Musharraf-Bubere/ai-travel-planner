@@ -1,9 +1,33 @@
 from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.tools import tool
 
 from src.schemas.stay import StayAnalysis
 from src.services.llm import get_llm, get_structured_llm
 from src.state import TravelState
-from src.tools.accommodation import search_accommodations
+from src.mcp_server.client import call_mcp_tool
+
+
+@tool
+def accommodation_search_tool(
+    destination: str,
+    travel_dates: str,
+    duration: int,
+    travelers: int,
+    budget: float,
+    preferences: list[str],
+) -> list[dict]:
+    """Search real accommodation options through the MCP travel server."""
+    return call_mcp_tool(
+        "accommodation_search",
+        {
+            "destination": destination,
+            "travel_dates": travel_dates,
+            "duration": duration,
+            "travelers": travelers,
+            "budget": budget,
+            "preferences": preferences,
+        },
+    )
 
 
 def build_stay_prompt(state: TravelState) -> str:
@@ -57,7 +81,7 @@ def stay_agent(state: TravelState) -> TravelState:
     llm = get_llm()
 
     llm_with_tools = llm.bind_tools(
-        [search_accommodations]
+        [accommodation_search_tool]
     )
 
     prompt = build_stay_prompt(state)
@@ -77,7 +101,7 @@ def stay_agent(state: TravelState) -> TravelState:
 
     tool_call = response.tool_calls[0]
 
-    tool_result = search_accommodations.invoke(
+    tool_result = accommodation_search_tool.invoke(
         tool_call["args"]
     )
 

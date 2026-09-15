@@ -1,10 +1,25 @@
 from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.tools import tool
 
-from src.services.llm import get_llm
-from src.state import TravelState
-from src.tools.weather import search_weather
 from src.schemas.weather import WeatherAnalysis
-from src.services.llm import get_structured_llm
+from src.services.llm import get_llm, get_structured_llm
+from src.state import TravelState
+from src.mcp_server.client import call_mcp_tool
+
+
+@tool
+def weather_search_tool(
+    destination: str,
+    duration: int,
+) -> dict:
+    """Retrieve weather information through the MCP travel server."""
+    return call_mcp_tool(
+        "weather_search",
+        {
+            "destination": destination,
+            "duration": duration,
+        },
+    )
 
 
 def build_weather_prompt(state: TravelState) -> str:
@@ -37,44 +52,47 @@ def weather_agent(state: TravelState) -> TravelState:
     llm = get_llm()
 
     llm_with_tools = llm.bind_tools(
-        [search_weather]
+        [weather_search_tool]
     )
 
     prompt = build_weather_prompt(state)
-    user_message = HumanMessage(content=prompt)
+
+    user_message = HumanMessage(
+        content=prompt
+    )
 
     response = llm_with_tools.invoke(
         [user_message]
     )
 
-    if response.tool_calls:
-        tool_call = response.tool_calls[0]
-
-        tool_result = search_weather.invoke(
-            tool_call["args"]
+    if not response.tool_calls:
+        raise ValueError(
+            "Weather agent did not call the weather search tool."
         )
 
-        tool_message = ToolMessage(
-            content=str(tool_result),
-            tool_call_id=tool_call["id"],
-        )
+    tool_call = response.tool_calls[0]
 
-        structured_llm = get_structured_llm(
-            WeatherAnalysis
-        )
-
-        final_response = structured_llm.invoke(
-            [
-                user_message,
-                response,
-                tool_message,
-            ]
-        )
-
-        return {
-            "weather": final_response.model_dump()
-        }
-
-    raise ValueError(
-        "Weather agent did not call the weather search tool."
+    tool_result = weather_search_tool.invoke(
+        tool_call["args"]
     )
+
+    tool_message = ToolMessage(
+        content=str(tool_result),
+        tool_call_id=tool_call["id"],
+    )
+
+    structured_llm = get_structured_llm(
+        WeatherAnalysis
+    )
+
+    final_response = structured_llm.invoke(
+        [
+            user_message,
+            response,
+            tool_message,
+        ]
+    )
+
+    return {
+        "weather": final_response.model_dump()
+    }

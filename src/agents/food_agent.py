@@ -1,9 +1,27 @@
 from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.tools import tool
 
 from src.schemas.food import FoodAnalysis
 from src.services.llm import get_llm, get_structured_llm
 from src.state import TravelState
-from src.tools.food import search_restaurants
+from src.mcp_server.client import call_mcp_tool
+
+
+@tool
+def restaurant_search_tool(
+    destination: str,
+    price_level: int = 2,
+    limit: int = 5,
+) -> list[dict]:
+    """Search restaurants through the MCP travel server."""
+    return call_mcp_tool(
+        "restaurant_search",
+        {
+            "destination": destination,
+            "price_level": price_level,
+            "limit": limit,
+        },
+    )
 
 
 def build_food_prompt(state: TravelState) -> str:
@@ -52,7 +70,7 @@ def food_agent(state: TravelState) -> TravelState:
     llm = get_llm()
 
     llm_with_tools = llm.bind_tools(
-        [search_restaurants]
+        [restaurant_search_tool]
     )
 
     prompt = build_food_prompt(state)
@@ -72,7 +90,7 @@ def food_agent(state: TravelState) -> TravelState:
 
     tool_call = response.tool_calls[0]
 
-    tool_result = search_restaurants.invoke(
+    tool_result = restaurant_search_tool.invoke(
         tool_call["args"]
     )
 

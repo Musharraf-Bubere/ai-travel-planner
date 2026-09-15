@@ -4,3 +4,11 @@ langchain-google-genai
 python-dotenv
 pydantic
 requests
+tavily-python
+fastapi
+uvicorn
+mcp[cli]
+langsmith
+sqlalchemy
+psycopg[binary]
+alembic

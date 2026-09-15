@@ -1,9 +1,27 @@
 from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.tools import tool
 
 from src.schemas.activity import ActivityAnalysis
 from src.services.llm import get_llm, get_structured_llm
 from src.state import TravelState
-from src.tools.activity import search_activities
+from src.mcp_server.client import call_mcp_tool
+
+
+@tool
+def activity_search_tool(
+    destination: str,
+    preferences: list[str],
+    limit: int = 8,
+) -> list[dict]:
+    """Search real activities through the MCP travel server."""
+    return call_mcp_tool(
+        "activity_search",
+        {
+            "destination": destination,
+            "preferences": preferences,
+            "limit": limit,
+        },
+    )
 
 
 def build_activity_prompt(state: TravelState) -> str:
@@ -56,7 +74,7 @@ def activity_agent(state: TravelState) -> TravelState:
     llm = get_llm()
 
     llm_with_tools = llm.bind_tools(
-        [search_activities]
+        [activity_search_tool]
     )
 
     prompt = build_activity_prompt(state)
@@ -76,7 +94,7 @@ def activity_agent(state: TravelState) -> TravelState:
 
     tool_call = response.tool_calls[0]
 
-    tool_result = search_activities.invoke(
+    tool_result = activity_search_tool.invoke(
         tool_call["args"]
     )
 
