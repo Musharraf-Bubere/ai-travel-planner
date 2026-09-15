@@ -4,33 +4,117 @@ import re
 
 GOA_AREA_KEYWORDS = {
     "north_goa": [
+        # North Goa towns / areas
+        "arambol",
+        "mandrem",
+        "ashwem",
+        "morjim",
+        "siolim",
+        "chapora",
+        "vagator",
+        "mapusa",
+        "bardez",
         "anjuna",
+        "assagao",
+        "parra",
+        "arpora",
         "calangute",
         "baga",
-        "bardez",
-        "arpora",
         "candolim",
         "nerul",
         "sinquerim",
+        "reis magos",
+        "saligao",
+        "porvorim",
+
+        # Common North Goa attractions / beaches
+        "arambol beach",
+        "mandrem beach",
+        "ashwem beach",
+        "morjim beach",
+        "vagator beach",
+        "chapora beach",
+        "anjuna beach",
+        "calangute beach",
+        "baga beach",
+        "candolim beach",
+        "sinquerim beach",
+        "fort aguada",
+        "aguada fort",
+        "chapora fort",
+        "sweet water lake",
+        "sweetwater lake",
     ],
     "central_goa": [
+        # Central Goa / Panaji and Mormugao areas
         "panaji",
         "panjim",
+        "miramar",
+        "caranzalem",
+        "dona paula",
+        "taleigao",
+        "old goa",
+        "velha goa",
+        "ribandar",
         "mormugao",
         "marmugao",
         "vasco",
+        "vasco da gama",
+        "chicalim",
+        "sancoale",
+        "verna",
+
+        # Common Central Goa attractions
+        "miramar beach",
+        "dona paula",
+        "basilica of bom jesus",
+        "se cathedral",
     ],
     "south_goa": [
+        # South Goa towns / areas
         "palolem",
         "canacona",
         "agonda",
+        "patnem",
+        "colomb",
+        "galgibaga",
+        "talpona",
+        "cabo de rama",
+        "cavelossim",
+        "mobor",
+        "varca",
+        "benaulim",
         "betalbatim",
+        "colva",
+        "majorda",
+        "utorda",
         "loutolim",
         "salcete",
         "margao",
         "madgaon",
         "seraulim",
         "velsao",
+        "cansaulim",
+        "quiteria",
+        "chinchinim",
+
+        # Common South Goa attractions / beaches
+        "palolem beach",
+        "patnem beach",
+        "agonda beach",
+        "galgibaga beach",
+        "colva beach",
+        "benaulim beach",
+        "varca beach",
+        "cavelossim beach",
+        "mobor beach",
+        "betalbatim beach",
+        "majorda beach",
+        "utorda beach",
+        "velsao beach",
+        "cabo de rama fort",
+        "butterfly beach",
+        "honeymoon beach",
     ],
 }
 
@@ -43,6 +127,8 @@ GENERIC_ACTIVITIES = {
     "dinner",
     "lunch",
     "breakfast",
+    "dining",
+    "riverside dining",
     "free time",
     "relaxation",
 }
@@ -458,6 +544,199 @@ def find_duplicate_itinerary_places(
     return issues
 
 
+
+def repair_geographic_conflicts(
+    itinerary: list[dict],
+    destination: str,
+) -> list[dict]:
+    """
+    Deterministically repair geographic conflicts for Goa.
+
+    The LLM performs the primary semantic repair. This function is a
+    conservative safety net that removes conflicting known-region items.
+
+    Important invariant:
+    A deterministic cleanup must never remove every itinerary item from a
+    required day. If a repair would empty a day, that repair is skipped and
+    the normal validation/refinement loop is allowed to handle the issue.
+
+    The function never invents locations, prices, distances, or other facts.
+    """
+    if not itinerary:
+        return []
+
+    if destination.lower().strip() != "goa":
+        return itinerary
+
+    repaired = [dict(item) for item in itinerary]
+
+    def item_area(item: dict) -> str:
+        location = item.get("location", "")
+        return classify_area(location) if location else "unknown"
+
+    def day_groups(items: list[dict]) -> dict[int, list[dict]]:
+        grouped: dict[int, list[dict]] = defaultdict(list)
+        for item in items:
+            day = item.get("day")
+            if day is not None:
+                grouped[day].append(item)
+        return grouped
+
+    # ------------------------------------------------------------
+    # Pass 1: resolve same-day conflicts without emptying a day.
+    # ------------------------------------------------------------
+    grouped = day_groups(repaired)
+
+    for day, items in grouped.items():
+        known_areas = [
+            item_area(item)
+            for item in items
+            if item_area(item) != "unknown"
+        ]
+
+        if len(set(known_areas)) <= 1:
+            continue
+
+        area_counts = defaultdict(int)
+        for area in known_areas:
+            area_counts[area] += 1
+
+        primary_area = max(
+            area_counts,
+            key=area_counts.get,
+        )
+
+        candidate = [
+            item
+            for item in repaired
+            if (
+                item.get("day") != day
+                or item_area(item) in ("unknown", primary_area)
+            )
+        ]
+
+        # Never turn a required day into an empty day.
+        if any(item.get("day") == day for item in candidate):
+            repaired = candidate
+
+    # ------------------------------------------------------------
+    # Pass 2: resolve disjoint consecutive-day conflicts.
+    # Never empty either affected day.
+    # ------------------------------------------------------------
+    grouped = day_groups(repaired)
+    ordered_days = sorted(grouped)
+
+    for previous_day, current_day in zip(
+        ordered_days,
+        ordered_days[1:],
+    ):
+        previous_areas = {
+            item_area(item)
+            for item in grouped[previous_day]
+            if item_area(item) != "unknown"
+        }
+        current_areas = {
+            item_area(item)
+            for item in grouped[current_day]
+            if item_area(item) != "unknown"
+        }
+
+        if not previous_areas or not current_areas:
+            continue
+
+        if not previous_areas.isdisjoint(current_areas):
+            continue
+
+        previous_counts = defaultdict(int)
+        current_counts = defaultdict(int)
+
+        for item in grouped[previous_day]:
+            area = item_area(item)
+            if area != "unknown":
+                previous_counts[area] += 1
+
+        for item in grouped[current_day]:
+            area = item_area(item)
+            if area != "unknown":
+                current_counts[area] += 1
+
+        previous_total = sum(previous_counts.values())
+        current_total = sum(current_counts.values())
+
+        if previous_total >= current_total:
+            keep_area = max(
+                previous_counts,
+                key=previous_counts.get,
+            )
+        else:
+            keep_area = max(
+                current_counts,
+                key=current_counts.get,
+            )
+
+        affected_days = {previous_day, current_day}
+
+        candidate = [
+            item
+            for item in repaired
+            if (
+                item.get("day") not in affected_days
+                or item_area(item) in ("unknown", keep_area)
+            )
+        ]
+
+        # Do not apply a repair that removes every item from either required
+        # day. The validator/refinement loop must solve that case semantically.
+        candidate_grouped = day_groups(candidate)
+
+        if (
+            candidate_grouped.get(previous_day)
+            and candidate_grouped.get(current_day)
+        ):
+            repaired = candidate
+            grouped = candidate_grouped
+
+    # ------------------------------------------------------------
+    # Pass 3: only remove remaining cross-region items if every day
+    # remains represented afterwards.
+    # ------------------------------------------------------------
+    area_counts = defaultdict(int)
+
+    for item in repaired:
+        area = item_area(item)
+        if area != "unknown":
+            area_counts[area] += 1
+
+    if len(area_counts) > 1:
+        primary_area = max(
+            area_counts,
+            key=area_counts.get,
+        )
+
+        candidate = [
+            item
+            for item in repaired
+            if item_area(item) in ("unknown", primary_area)
+        ]
+
+        original_days = {
+            item.get("day")
+            for item in repaired
+            if item.get("day") is not None
+        }
+        candidate_days = {
+            item.get("day")
+            for item in candidate
+            if item.get("day") is not None
+        }
+
+        # Preserve exact day coverage. If global cleanup would remove a
+        # required day, leave the itinerary untouched for LLM refinement.
+        if original_days.issubset(candidate_days):
+            repaired = candidate
+
+    return repaired
+
 def find_ungrounded_itinerary_places(
     itinerary: list[dict],
     activities: dict,
@@ -668,3 +947,120 @@ def find_ungrounded_itinerary_places(
             )
 
     return issues
+
+def repair_duplicate_itinerary_places(
+    itinerary: list[dict],
+) -> list[dict]:
+    """
+    Deterministically remove later duplicate named places.
+
+    Generic activities are ignored. If removing a duplicate would make a
+    day empty, the repair is skipped for that duplicate so day coverage is
+    preserved.
+    """
+    if not itinerary:
+        return []
+
+    generic = {
+        "check-in", "check in", "check-out", "check out",
+        "breakfast", "lunch", "dinner", "dining",
+        "free time", "relaxation", "riverside dining",
+    }
+
+    result = [dict(item) for item in itinerary]
+    seen: dict[str, int] = defaultdict(int)
+
+    for index, item in enumerate(result):
+        activity = str(item.get("activity", "")).strip()
+        location = str(item.get("location", "")).strip()
+        activity_norm = normalize_location(activity)
+
+        if activity_norm in generic:
+            candidate = location
+        else:
+            candidate = activity
+
+        normalized = normalize_place_name(candidate)
+
+        if not normalized or normalized in {"goa", "goa india", "not available"}:
+            continue
+
+        tokens = set(normalized.split())
+        if tokens and tokens.issubset(GENERIC_PLACE_WORDS):
+            continue
+
+        seen[normalized] += 1
+
+        if seen[normalized] <= 1:
+            continue
+
+        day = item.get("day")
+        day_count = sum(1 for existing in result if existing.get("day") == day)
+
+        if day_count <= 1:
+            continue
+
+        # Remove the later duplicate while preserving at least one item
+        # on the affected day.
+        result[index] = None
+
+    return [
+        item for item in result
+        if item is not None
+    ]
+
+
+def repair_missing_morning_slots(
+    itinerary: list[dict],
+    required_duration: int | None = None,
+) -> list[dict]:
+    """
+    Ensure represented trip days have a Morning slot by rescheduling an
+    existing item from Afternoon/Evening when possible.
+
+    This function never invents an activity.
+    """
+    if not itinerary:
+        return []
+
+    result = [dict(item) for item in itinerary]
+    grouped: dict[int, list[dict]] = defaultdict(list)
+
+    for item in result:
+        day = item.get("day")
+        if isinstance(day, int):
+            grouped[day].append(item)
+
+    target_days = (
+        range(1, required_duration + 1)
+        if required_duration
+        else sorted(grouped)
+    )
+
+    for day in target_days:
+        day_items = grouped.get(day, [])
+
+        if not day_items:
+            # A completely missing day cannot be safely invented here.
+            continue
+
+        if any(
+            str(item.get("time", "")).strip().lower() == "morning"
+            for item in day_items
+        ):
+            continue
+
+        candidate = next(
+            (
+                item for item in day_items
+                if str(item.get("time", "")).strip().lower()
+                in {"afternoon", "evening"}
+            ),
+            None,
+        )
+
+        if candidate is not None:
+            candidate["time"] = "Morning"
+
+    return result
+

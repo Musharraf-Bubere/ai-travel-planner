@@ -2,6 +2,11 @@ from langchain_core.messages import HumanMessage
 
 from src.schemas.itinerary import ItineraryAnalysis
 from src.services.llm import get_structured_llm
+from src.utils.itinerary_checks import (
+    repair_geographic_conflicts,
+    repair_duplicate_itinerary_places,
+    repair_missing_morning_slots,
+)
 from src.state import TravelState
 
 
@@ -34,6 +39,10 @@ You are NOT allowed to simply rewrite the same itinerary.
 
 Every validation issue must result in a REAL change to the itinerary
 when the current itinerary violates that issue.
+
+For duplicate-place issues, remove the later duplicate occurrence or replace it only with a different activity already present in the research. Do not keep the same named place on multiple days.
+
+For missing time-slot issues, redistribute an existing researched activity within that same day when possible. Do not invent a new activity merely to fill a time slot.
 
 The final structured itinerary must satisfy the validation requirements,
 not merely claim that they have been satisfied.
@@ -498,6 +507,7 @@ analysis.
 """
 
 
+
 def refine_itinerary(state: TravelState) -> TravelState:
     structured_llm = get_structured_llm(
         ItineraryAnalysis
@@ -515,6 +525,30 @@ def refine_itinerary(state: TravelState) -> TravelState:
         [user_message]
     )
 
+    repaired_itinerary = response.model_dump()
+
+    # Deterministic geographic safety net. The LLM performs the semantic
+    # repair, while the hard geographic constraint is enforced before the
+    # next validation pass.
+    itinerary_items = repaired_itinerary.get(
+        "itinerary",
+        [],
+    )
+
+    repaired_items = repair_geographic_conflicts(
+        itinerary_items,
+        state["destination"],
+    )
+
+    repaired_items = repair_duplicate_itinerary_places(
+        repaired_items,
+    )
+
+    repaired_itinerary["itinerary"] = repair_missing_morning_slots(
+        repaired_items,
+        state.get("duration"),
+    )
+
     return {
-        "itinerary": response.model_dump()
+        "itinerary": repaired_itinerary
     }
