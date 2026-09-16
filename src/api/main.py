@@ -1,13 +1,23 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
 
-from src.api.schemas import TravelPlanResponse, TravelRequest
+from src.api.schemas import (
+    TravelPlanResponse,
+    TravelRequest,
+    TripDetailResponse,
+    TripResponse,
+)
 from src.database.connection import SessionLocal
 from src.database.repository import (
     create_travel_plan as save_travel_plan,
     create_trip,
+    get_all_trips,
+    get_trip,
+    get_travel_plans_for_trip,
     update_trip_status,
 )
 from src.graph.travel_graph import build_travel_graph
+from src.services.pdf_generator import generate_travel_plan_pdf
 
 
 app = FastAPI(
@@ -32,6 +42,181 @@ def health_check() -> dict:
         "service": "AI Travel Planner API",
     }
 
+
+@app.get(
+    "/trips",
+    response_model=list[TripResponse],
+)
+def get_trips() -> list[TripResponse]:
+    """
+    Retrieve all previously generated travel trips.
+    """
+    db = SessionLocal()
+
+    try:
+        trips = get_all_trips(db)
+
+        return [
+            TripResponse(
+                id=trip.id,
+                destination=trip.destination,
+                travel_dates=trip.travel_dates,
+                duration=trip.duration,
+                travelers=trip.travelers,
+                budget=trip.budget,
+                preferences=trip.preferences,
+                status=trip.status,
+            )
+            for trip in trips
+        ]
+
+    finally:
+        db.close()
+
+
+@app.get(
+    "/trips/{trip_id}",
+    response_model=TripDetailResponse,
+)
+def get_trip_details(
+    trip_id: int,
+) -> TripDetailResponse:
+    """
+    Retrieve a specific trip and its generated travel plans.
+    """
+    db = SessionLocal()
+
+    try:
+        trip = get_trip(
+            db=db,
+            trip_id=trip_id,
+        )
+
+        if trip is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Trip with id {trip_id} not found.",
+            )
+
+        travel_plans = get_travel_plans_for_trip(
+            db=db,
+            trip_id=trip.id,
+        )
+
+        return TripDetailResponse(
+            id=trip.id,
+            destination=trip.destination,
+            travel_dates=trip.travel_dates,
+            duration=trip.duration,
+            travelers=trip.travelers,
+            budget=trip.budget,
+            preferences=trip.preferences,
+            status=trip.status,
+            travel_plans=[
+                {
+                    "id": plan.id,
+                    "itinerary": plan.itinerary,
+                    "accommodation_summary": (
+                        plan.accommodation_summary
+                    ),
+                    "food_summary": plan.food_summary,
+                    "travel_tips": plan.travel_tips,
+                    "validation": plan.validation,
+                    "validation_attempts": (
+                        plan.validation_attempts
+                    ),
+                    "created_at": plan.created_at,
+                }
+                for plan in travel_plans
+            ],
+        )
+
+    finally:
+        db.close()
+
+@app.get(
+    "/trips/{trip_id}/pdf",
+)
+def download_trip_pdf(
+    trip_id: int,
+) -> Response:
+    """
+    Generate and download a PDF for a previously generated travel plan.
+    """
+
+    db = SessionLocal()
+
+    try:
+        # ---------------------------------------------------------
+        # 1. Retrieve the trip
+        # ---------------------------------------------------------
+        trip = get_trip(
+            db=db,
+            trip_id=trip_id,
+        )
+
+        if trip is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Trip with id {trip_id} not found.",
+            )
+
+        # ---------------------------------------------------------
+        # 2. Retrieve the generated travel plans
+        # ---------------------------------------------------------
+        travel_plans = get_travel_plans_for_trip(
+            db=db,
+            trip_id=trip.id,
+        )
+
+        if not travel_plans:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No travel plan found for trip {trip_id}.",
+            )
+
+        # ---------------------------------------------------------
+        # 3. Use the latest generated travel plan
+        # ---------------------------------------------------------
+        latest_plan = travel_plans[0]
+
+        # ---------------------------------------------------------
+        # 4. Generate PDF
+        # ---------------------------------------------------------
+        pdf_bytes = generate_travel_plan_pdf(
+            destination=trip.destination,
+            travel_dates=trip.travel_dates,
+            trip_details={
+                "itinerary": latest_plan.itinerary,
+                "accommodation_summary": (
+                    latest_plan.accommodation_summary
+                ),
+                "food_summary": latest_plan.food_summary,
+                "travel_tips": latest_plan.travel_tips,
+                "validation": latest_plan.validation,
+            },
+        )
+
+        # ---------------------------------------------------------
+        # 5. Return downloadable PDF
+        # ---------------------------------------------------------
+        filename = (
+            f"travel_plan_{trip.destination.lower().replace(' ', '_')}"
+            f"_{trip.id}.pdf"
+        )
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{filename}"'
+                )
+            },
+        )
+
+    finally:
+        db.close()
 
 def run_travel_planner(
     request: TravelRequest,
@@ -171,6 +356,7 @@ def create_travel_plan(
         # 5. Return the API response
         # ---------------------------------------------------------
         return TravelPlanResponse(
+            trip_id=trip.id,
             destination=request.destination,
             travel_dates=request.travel_dates,
             validation=result.get(

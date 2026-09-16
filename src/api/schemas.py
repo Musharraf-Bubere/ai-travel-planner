@@ -36,8 +36,24 @@ class TravelRequest(BaseModel):
 
 
 class TravelPlanResponse(BaseModel):
+    trip_id: int
     destination: str
     travel_dates: str
     validation: dict
     validation_attempts: int
     final_response: FinalResponse
+
+
+class TripResponse(BaseModel):
+    id: int
+    destination: str
+    travel_dates: str
+    duration: int
+    travelers: int
+    budget: float
+    preferences: list[str]
+    status: str
+
+
+class TripDetailResponse(TripResponse):
+    travel_plans: list[dict]

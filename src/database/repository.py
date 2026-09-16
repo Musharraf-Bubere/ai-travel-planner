@@ -123,3 +123,15 @@ def get_travel_plans_for_trip(
     )
 
     return list(db.scalars(statement).all())
+
+def get_all_trips(
+    db: Session,
+) -> list[Trip]:
+    """Retrieve all trips ordered by newest first."""
+
+    statement = (
+        select(Trip)
+        .order_by(Trip.created_at.desc())
+    )
+
+    return list(db.scalars(statement).all())

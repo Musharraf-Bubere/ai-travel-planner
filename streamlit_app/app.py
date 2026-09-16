@@ -32,6 +32,7 @@ DEFAULT_STATE = {
     "travel_plan": None,
     "request_data": None,
     "generation_error": None,
+    "trip_id": None,
 }
 
 for key, value in DEFAULT_STATE.items():
@@ -251,6 +252,7 @@ def reset_plan() -> None:
     st.session_state["travel_plan"] = None
     st.session_state["request_data"] = None
     st.session_state["generation_error"] = None
+    st.session_state["trip_id"] = None
 
 
 def render_stat_card(
@@ -1329,6 +1331,7 @@ if generate_plan:
 
                 st.session_state["travel_plan"] = result
                 st.session_state["request_data"] = payload
+                st.session_state["trip_id"] = result.get("trip_id")
 
                 status.update(
                     label="✅ Travel plan generated successfully!",
@@ -1611,7 +1614,44 @@ if st.session_state["travel_plan"] is not None:
             )
 
     with action_col3:
-        st.caption("")
+        trip_id = st.session_state.get("trip_id")
+
+        if trip_id:
+            pdf_url = (
+                f"http://127.0.0.1:8000/trips/{trip_id}/pdf"
+            )
+
+            try:
+                pdf_response = requests.get(
+                    pdf_url,
+                    timeout=60,
+                )
+
+                if pdf_response.status_code == 200:
+                    st.download_button(
+                        label="📄 Download Travel Plan PDF",
+                        data=pdf_response.content,
+                        file_name=(
+                            f"travel_plan_"
+                            f"{destination_name.lower().replace(' ', '_')}_"
+                            f"{trip_id}.pdf"
+                        ),
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
+                else:
+                    st.caption(
+                        "PDF download is currently unavailable."
+                    )
+
+            except requests.RequestException:
+                st.caption(
+                    "PDF download is currently unavailable."
+                )
+        else:
+            st.caption(
+                "Generate a travel plan to download the PDF."
+            )
 
 
     # ========================================================
