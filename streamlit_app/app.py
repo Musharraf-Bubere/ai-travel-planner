@@ -1,4 +1,5 @@
 import html
+import os
 from datetime import date
 
 import requests
@@ -21,7 +22,10 @@ st.set_page_config(
 # CONFIGURATION
 # ============================================================
 
-API_URL = "http://127.0.0.1:8000/plan"
+API_URL = os.getenv(
+    "API_URL",
+    "http://127.0.0.1:8000/plan",
+)
 
 
 # ============================================================
@@ -1618,7 +1622,7 @@ if st.session_state["travel_plan"] is not None:
 
         if trip_id:
             pdf_url = (
-                f"http://127.0.0.1:8000/trips/{trip_id}/pdf"
+                f"http://api:8000/trips/{trip_id}/pdf"
             )
 
             try:

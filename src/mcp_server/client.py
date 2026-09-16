@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import sys
 from typing import Any
 
@@ -16,6 +17,7 @@ class TravelMCPClient:
                 "-m",
                 "src.mcp_server.travel_server",
             ],
+            env=os.environ.copy(),
         )
 
     async def call_tool(

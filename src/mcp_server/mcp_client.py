@@ -1,18 +1,41 @@
 import asyncio
 import json
+import os
 import sys
 
+from dotenv import load_dotenv
 from mcp import Client, StdioServerParameters
 
+
+# ============================================================
+# LOAD ENVIRONMENT VARIABLES
+# ============================================================
+
+load_dotenv()
+
+
+# ============================================================
+# MCP SERVER CONFIGURATION
+# ============================================================
 
 server_params = StdioServerParameters(
     command=sys.executable,
     args=["-m", "src.mcp_server.travel_server"],
+    env=os.environ.copy(),
 )
 
 
+# ============================================================
+# MAIN
+# ============================================================
+
 async def main() -> None:
+
     async with Client(server_params) as client:
+
+        # ----------------------------------------------------
+        # CONNECTION INFORMATION
+        # ----------------------------------------------------
 
         print("=" * 60)
         print("MCP CONNECTION")
@@ -24,6 +47,10 @@ async def main() -> None:
             print(f"Server name: {client.server_info.name}")
             print(f"Server version: {client.server_info.version}")
 
+        # ----------------------------------------------------
+        # AVAILABLE TOOLS
+        # ----------------------------------------------------
+
         print("\n" + "=" * 60)
         print("AVAILABLE MCP TOOLS")
         print("=" * 60)
@@ -32,8 +59,15 @@ async def main() -> None:
 
         for tool in tools_response.tools:
             print(f"- {tool.name}")
-            print(f"  {tool.description}")
+
+            if tool.description:
+                print(f"  {tool.description}")
+
             print()
+
+        # ----------------------------------------------------
+        # TEST DESTINATION RESEARCH
+        # ----------------------------------------------------
 
         print("=" * 60)
         print("TESTING DESTINATION RESEARCH")
@@ -54,6 +88,7 @@ async def main() -> None:
         print("\nMCP TOOL RESULT:")
 
         if result.structured_content:
+
             print(
                 json.dumps(
                     result.structured_content,
@@ -63,8 +98,11 @@ async def main() -> None:
             )
 
         elif result.content:
+
             for content in result.content:
+
                 if hasattr(content, "text"):
+
                     try:
                         parsed = json.loads(content.text)
 
@@ -77,11 +115,21 @@ async def main() -> None:
                         )
 
                     except json.JSONDecodeError:
+
                         print(content.text)
 
                 else:
+
                     print(content)
 
+        else:
+
+            print("No result returned by MCP tool.")
+
+
+# ============================================================
+# ENTRY POINT
+# ============================================================
 
 if __name__ == "__main__":
     asyncio.run(main())
