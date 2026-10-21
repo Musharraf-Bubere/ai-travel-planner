@@ -1,5 +1,8 @@
 # AI Travel Planner — Project Overview
 
+> [!NOTE]
+> **Document Role**: This document is the original foundational charter outlining the problem statement, goals, and phased roadmap for the AI Travel Planner project. For the current, authoritative documentation detailing the fully implemented architecture, API endpoints, LangGraph routing, and deployment steps, please refer to the root [README.md](../README.md).
+
 ## 1. Project Name
 
 **AI Travel Planner — Multi-Agent Travel Planning System**
@@ -97,7 +100,7 @@ This makes the system an **Agentic AI / Multi-Agent System** rather than a simpl
                     Weather Agent
                           |
                           v
-                       Food Agent
+                        Food Agent
                           |
                           v
                     Itinerary Agent

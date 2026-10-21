@@ -1,5 +1,9 @@
 # AI Travel Planner — Research
 
+> [!NOTE]
+> **Document Role**: This document serves as the architectural research and technology selection record compiled prior to implementing the AI Travel Planner. For the authoritative, up-to-date system documentation reflecting the verified codebase, refer to the root [README.md](../README.md).
+
+
 ## 1. Purpose of This Research
 
 Before implementing AI Travel Planner, we need to understand the technologies, architectural patterns, and Agentic AI concepts that will be used in the project.

@@ -1,5 +1,9 @@
 # AI Travel Planner — Implementation
 
+> [!NOTE]
+> **Document Role**: This document serves as the historical development log tracking the incremental implementation phases of the AI Travel Planner. For the authoritative, up-to-date system documentation reflecting the completed codebase (including parallel branches, hybrid validation, bounded refinement loops, MCP integration, PostgreSQL persistence, FastAPI endpoints, and Docker), refer to the root [README.md](../README.md).
+
+
 ## 1. Purpose
 
 This document records the implementation completed so far for the **AI Travel Planner — Multi-Agent Travel Planning System**.
